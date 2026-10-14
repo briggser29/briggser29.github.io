@@ -1,0 +1,829 @@
+<title>Erik's Shelf</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow reading column; catalog header with yearly goal, add + Audible import, shelf tabs + Stats, toolbar, then catalog-card rows. */
+:root {
+  --bg: #f3f5f2;
+  --surface: #ffffff;
+  --ink: #1d2621;
+  --muted: #5f6b64;
+  --line: #d9dfd9;
+  --accent: #1f5b46;
+  --accent-soft: #e2ece6;
+  --brass: #a87b1f;
+  --danger: #a23a2a;
+  --display: "Young Serif", Georgia, serif;
+  --body: "Work Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111815; --surface: #18211d; --ink: #e6ece8; --muted: #95a39b; --line: #2b3832;
+  --accent: #7cc4a4; --accent-soft: #1f3129; --brass: #d9ad55; --danger: #e07a68; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #111815; --surface: #18211d; --ink: #e6ece8; --muted: #95a39b; --line: #2b3832;
+  --accent: #7cc4a4; --accent-soft: #1f3129; --brass: #d9ad55; --danger: #e07a68; color-scheme: dark; }
+
+[hidden] { display: none !important; }
+.visitor .top, .visitor #importer { display: none !important; }
+.viewonly { display: none; }
+.visitor .viewonly { display: inline; }
+.star.static { cursor: default; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 720px; margin: 0 auto; padding-block: 32px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 24px; }
+
+header { display: flex; flex-direction: column; gap: 6px; }
+.eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 400; font-size: clamp(32px, 7vw, 44px); line-height: 1.05; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--display); font-weight: 400; font-size: 22px; line-height: 1.2; margin: 0; }
+h3 { font-family: var(--display); font-weight: 400; font-size: 18px; line-height: 1.2; margin: 0; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 20px; font-family: var(--mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.stats b { color: var(--ink); font-weight: 500; }
+
+.goal { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.goal-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; font-size: 14px; }
+.goal-row b { font-family: var(--mono); font-weight: 500; font-variant-numeric: tabular-nums; }
+.pace { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.pace.ahead { color: var(--accent); }
+.pace.behind { color: var(--brass); }
+.goalbar { max-width: none; height: 8px; position: relative; }
+.goalbar i { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); opacity: .45; border-radius: 1px; }
+.goal form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; }
+.goal form input { width: 6em; font-family: var(--mono); }
+.hint { font-size: 13px; color: var(--muted); }
+.link { appearance: none; background: none; border: 0; padding: 0; font: 500 13px var(--body); color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tab { appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 12px; font: 500 14px var(--body); color: var(--muted); cursor: pointer; white-space: nowrap; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tab .n { font-family: var(--mono); font-size: 12px; margin-left: 4px; }
+.tab.stats-tab { margin-left: auto; }
+
+.top { display: flex; flex-direction: column; gap: 12px; }
+.add { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
+@media (max-width: 560px) { .add { grid-template-columns: 1fr; } }
+input, select, textarea { font: 14px var(--body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; min-width: 0; }
+textarea { resize: vertical; min-height: 60px; width: 100%; box-sizing: border-box; }
+button.primary { font: 600 14px var(--body); background: var(--accent); color: var(--bg); border: 0; border-radius: 6px; padding: 9px 16px; cursor: pointer; }
+button.primary:disabled { opacity: .6; cursor: progress; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .tab:focus-visible, summary:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+.sync { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.last { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.how { flex-basis: 100%; font-size: 14px; color: var(--muted); }
+.how summary { cursor: pointer; color: var(--accent); font-weight: 500; font-size: 13px; width: max-content; max-width: 100%; }
+.how ol { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.cmd { display: flex; gap: 6px; align-items: center; margin-top: 4px; min-width: 0; }
+.cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font-family: var(--mono); font-size: 12.5px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+
+.importer { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.importer .sub { font-family: var(--mono); font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.groups { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.grp { border-bottom: 1px solid var(--line); padding: 10px 0; }
+.grp summary { cursor: pointer; display: flex; align-items: baseline; gap: 10px; list-style: none; }
+.grp summary::-webkit-details-marker { display: none; }
+.grp .count { font-family: var(--mono); font-size: 14px; font-variant-numeric: tabular-nums; min-width: 3ch; text-align: right; color: var(--accent); }
+.grp.off .count { color: var(--muted); }
+.grp ul { margin: 6px 0 0; padding-left: calc(3ch + 10px); list-style: none; font-size: 14px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+.grp li span { font-family: var(--mono); font-size: 12px; }
+.grp label { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--ink); padding-left: calc(3ch + 10px); margin-top: 6px; cursor: pointer; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.tools { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; margin-top: -8px; }
+.tools .checks { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 20px; }
+.tools .only { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.chip.own { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+@media (max-width: 560px) { .tools { grid-template-columns: 1fr 1fr; } .tools #q { grid-column: 1 / -1; } }
+.tools select { max-width: 100%; }
+
+.list { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.book { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 16px 4px; border-bottom: 1px solid var(--line); }
+.book .t { font-family: var(--display); font-size: 20px; line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
+.book .a { color: var(--muted); font-size: 14px; grid-column: 1; }
+.book .a .gen { font-family: var(--mono); font-size: 11px; letter-spacing: .04em; }
+.book .meta { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.chip { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.chip.fav { background: transparent; color: var(--brass); border: 1px solid var(--brass); }
+.chip.src { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+.stars { display: flex; gap: 2px; }
+.star { appearance: none; background: none; border: 0; padding: 0 1px; font-size: 18px; line-height: 1; cursor: pointer; color: var(--line); }
+.star.on { color: var(--brass); }
+.prog { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding-top: 4px; }
+.bar { flex: 1; max-width: 360px; height: 6px; border-radius: 999px; background: var(--accent-soft); }
+.bar span { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+.pct { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.when { grid-column: 1 / -1; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.note { grid-column: 1 / -1; color: var(--muted); font-size: 14px; font-style: italic; }
+.actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 20px; }
+.toggle.dnf-btn { color: var(--muted); }
+.toggle.dnf-btn:hover { color: var(--danger); }
+.notice button { margin-left: 8px; }
+.toggle { grid-column: 1 / -1; justify-self: start; appearance: none; background: none; border: 0; padding: 0; font: 500 13px var(--body); color: var(--accent); cursor: pointer; }
+.edit { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; padding-top: 8px; }
+.pin { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.pin input[type="number"] { width: 5.5em; font-family: var(--mono); }
+.pin input[type="date"] { font-family: var(--mono); }
+.ghost { appearance: none; background: none; border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; font: 500 13px var(--body); color: var(--ink); cursor: pointer; }
+.ghost.danger { color: var(--danger); border-color: var(--danger); }
+.empty { padding: 32px 4px; color: var(--muted); }
+.notice { font-size: 13px; color: var(--muted); margin: 0; }
+.notice.ok { color: var(--accent); }
+
+/* Stats view */
+.statsview { display: flex; flex-direction: column; gap: 32px; padding-top: 20px; overflow-x: clip; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+@media (max-width: 560px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tile { background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.tile b { font-family: var(--display); font-weight: 400; font-size: 28px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile span { font-size: 13px; color: var(--muted); }
+.panel { display: flex; flex-direction: column; gap: 12px; }
+.panel-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.months { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px; align-items: end; height: 150px; border-bottom: 1px solid var(--line); padding-top: 18px; }
+.mcol { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; outline: none; }
+.mcol .mbar { width: 100%; max-width: 28px; background: var(--accent); border-radius: 4px 4px 0 0; min-height: 0; }
+.mcol .mval { font-family: var(--mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; margin-bottom: 3px; }
+.mcol.future .mbar { background: var(--accent-soft); }
+.mlabels { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: center; margin-top: 4px; }
+.tip { position: relative; }
+.tip::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); font: 12px var(--body); padding: 4px 8px; border-radius: 4px; white-space: nowrap; pointer-events: none; opacity: 0; z-index: 2; }
+.tip:hover::after, .tip:focus-visible::after { opacity: 1; }
+.hb { display: flex; flex-direction: column; gap: 6px; }
+.hb-row { display: grid; grid-template-columns: minmax(0, 11em) minmax(0, 1fr) 3ch; gap: 12px; align-items: center; font-size: 14px; }
+.hb-l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hb-t { height: 10px; }
+.hb-t span { display: block; height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; min-width: 2px; }
+.hb-n { font-family: var(--mono); font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.hb-row.star-row .hb-l { color: var(--brass); letter-spacing: 1px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+@media (max-width: 640px) { .two { grid-template-columns: 1fr; } .hb-row { grid-template-columns: minmax(0, 9em) minmax(0, 1fr) 3ch; } }
+
+@media (max-width: 420px) { .book { grid-template-columns: 1fr; } .book .meta { grid-column: 1; grid-row: auto; flex-direction: row; align-items: center; flex-wrap: wrap; } }
+@media (prefers-reduced-motion: no-preference) { .bar span, .hb-t span, .mbar { transition: width .4s ease, height .4s ease; } .tip::after { transition: opacity .12s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Reading log<span class="viewonly"> · view only</span></span>
+    <h1>Erik's Shelf</h1>
+    <div class="stats" id="stats"></div>
+    <div class="goal" id="goal"></div>
+  </header>
+
+  <div class="top">
+    <form class="add" id="addForm" autocomplete="off">
+      <input id="newTitle" placeholder="Title" required aria-label="Title">
+      <input id="newAuthor" placeholder="Author" aria-label="Author">
+      <button class="primary" type="submit">Add to Want to read</button>
+    </form>
+
+    <div class="sync">
+      <button class="ghost" id="impBtn" type="button">Import from Audible</button>
+      <input type="file" id="impInput" accept=".json,.tsv,.csv,application/json,text/csv,text/tab-separated-values" hidden>
+      <span class="last" id="lastImport">No Audible import yet</span>
+      <details class="how" id="how">
+        <summary>How to export your Audible library</summary>
+        <ol>
+          <li>One time: in Terminal (Mac) or Command Prompt (Windows), not inside Python, install audible-cli. On a Mac use python3 in place of py.
+            <div class="cmd"><code id="c1">py -m pip install audible-cli</code><button class="ghost" type="button" data-copy="c1">Copy</button></div></li>
+          <li>One time: sign in to Audible.
+            <div class="cmd"><code id="c0">audible quickstart</code><button class="ghost" type="button" data-copy="c0">Copy</button></div></li>
+          <li>Each time you want to sync: export your library.
+            <div class="cmd"><code id="c2">audible library export -f json -o audible-library.json</code><button class="ghost" type="button" data-copy="c2">Copy</button></div></li>
+          <li>Click Import from Audible and pick audible-library.json. You'll see every change before anything is saved.</li>
+        </ol>
+      </details>
+    </div>
+  </div>
+
+  <section class="importer" id="importer" hidden aria-labelledby="impTitle">
+    <div>
+      <h2 id="impTitle">Review Audible import</h2>
+      <div class="sub" id="impSub"></div>
+    </div>
+    <div id="impBody"></div>
+    <div class="row">
+      <button class="primary" type="button" id="impApply">Apply changes</button>
+      <button class="ghost" type="button" id="impCancel">Cancel</button>
+    </div>
+  </section>
+
+  <p class="notice" id="notice" hidden></p>
+
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+  <div class="tools" id="tools">
+    <input type="search" id="q" placeholder="Search title or author" aria-label="Search title or author" autocomplete="off">
+    <select id="genre" aria-label="Filter by genre"><option value="">All genres</option></select>
+    <select id="sort" aria-label="Sort">
+      <option value="recent">Recently updated</option>
+      <option value="title">Title A to Z</option>
+      <option value="author">Author A to Z</option>
+      <option value="rating">Highest rated</option>
+      <option value="progress">Most progress</option>
+      <option value="finished">Finish date</option>
+      <option value="length">Longest first</option>
+    </select>
+    <div class="checks">
+      <label class="only"><input type="checkbox" id="ownedOnly"> Owned only</label>
+      <label class="only" id="onlyWrap" hidden><input type="checkbox" id="onlyUndated"> Only books missing a finish date</label>
+    </div>
+  </div>
+  <div class="list" id="list"><div class="empty">Loading your shelf...</div></div>
+</div>
+
+<script>
+const SHELVES = [
+  { key: "reading", label: "Reading" },
+  { key: "want", label: "Want to read" },
+  { key: "finished", label: "Finished" },
+  { key: "dnf", label: "Did not finish" },
+  { key: "library", label: "Library" },
+];
+let ownedOnly = false;
+let visitor = false;
+let undo = null;
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+let books = [];
+let tab = "reading";
+let openId = null;
+let confirmId = null;
+let db = null;
+let plan = null;
+let lastImport = null;
+let goals = {};
+let goalEditing = false;
+let query = "";
+let genre = "";
+let sortBy = "recent";
+let onlyUndated = false;
+
+try { const t = localStorage.getItem("shelf-tab"); if (t === "stats" || SHELVES.some(s => s.key === t)) tab = t; } catch (e) {}
+try { const s = localStorage.getItem("shelf-sort"); if (s) sortBy = s; } catch (e) {}
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const clampPct = (n) => Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
+const fmtHrs = (min) => { const m = Math.max(0, Math.round(min)); const h = Math.floor(m / 60); return h ? `${h}h ${m % 60}m` : `${m}m`; };
+const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); } catch (e) { return iso; } };
+const fmtDay = (ymd) => { const [y, m, d] = String(ymd).split("-").map(Number); return y && m && d ? `${MONTHS[m - 1]} ${d}, ${y}` : ymd; };
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+const sortKey = (s) => String(s || "").toLowerCase().replace(/^(the|a|an)\s+/, "");
+const curYear = () => new Date().getFullYear();
+
+function say(msg, ok) { const n = $("notice"); n.hidden = !msg; n.textContent = msg || ""; n.classList.toggle("ok", !!ok); }
+
+/* ---------- derived ---------- */
+function finishedThisYear() { const y = String(curYear()); return books.filter(b => b.status === "finished" && b.finishedAt && b.finishedAt.startsWith(y)); }
+function undatedFinished() { return books.filter(b => b.status === "finished" && !b.finishedAt); }
+function matchesFilters(b) {
+  if (ownedOnly && !b.owned) return false;
+  if (genre && !(b.genres || []).includes(genre)) return false;
+  if (query) { const q = query.toLowerCase(); if (!String(b.title).toLowerCase().includes(q) && !String(b.author || "").toLowerCase().includes(q)) return false; }
+  return true;
+}
+function sorted(list) {
+  const by = {
+    recent: (a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""),
+    title: (a, b) => sortKey(a.title).localeCompare(sortKey(b.title)),
+    author: (a, b) => sortKey(a.author || "~").localeCompare(sortKey(b.author || "~")) || sortKey(a.title).localeCompare(sortKey(b.title)),
+    rating: (a, b) => (b.rating || 0) - (a.rating || 0) || sortKey(a.title).localeCompare(sortKey(b.title)),
+    progress: (a, b) => (b.progress || 0) - (a.progress || 0),
+    finished: (a, b) => (b.finishedAt || "").localeCompare(a.finishedAt || ""),
+    length: (a, b) => (b.runtimeMin || 0) - (a.runtimeMin || 0),
+  }[sortBy] || ((a, b) => 0);
+  return list.slice().sort(by);
+}
+function genreCounts(list) {
+  const c = new Map();
+  list.forEach(b => (b.genres || []).forEach(g => c.set(g, (c.get(g) || 0) + 1)));
+  return [...c.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+/* ---------- header ---------- */
+function renderHeader() {
+  const year = curYear();
+  const done = books.filter(b => b.status === "finished");
+  const rated = done.filter(b => b.rating);
+  const avg = rated.length ? (rated.reduce((s, b) => s + b.rating, 0) / rated.length).toFixed(1) : "–";
+  $("stats").innerHTML = `<span><b>${done.length}</b> finished</span><span><b>${finishedThisYear().length}</b> in ${year}</span><span><b>${avg}</b> avg rating</span><span><b>${books.filter(b => b.status === "want").length}</b> on deck</span>`;
+  $("lastImport").textContent = lastImport ? `Last Audible import ${fmtDate(lastImport)}` : "No Audible import yet";
+  renderGoal();
+}
+
+function renderGoal() {
+  const year = curYear();
+  const target = Number(goals[String(year)]) || 0;
+  const n = finishedThisYear().length;
+  const undated = undatedFinished().length;
+  if (visitor) {
+    if (!target) { $("goal").innerHTML = ""; return; }
+    const pctV = Math.min(100, n / target * 100);
+    $("goal").innerHTML = `<div class="goal-row"><span><b>${n}</b> of <b>${target}</b> books in ${year}</span></div><div class="bar goalbar"><span style="width:${pctV}%"></span></div>`;
+    return;
+  }
+  const undatedHint = undated ?`<div class="hint">${undated} finished book${undated === 1 ? " has" : "s have"} no finish date, so ${undated === 1 ? "it doesn't" : "they don't"} count yet. <button class="link" type="button" data-undated>Add dates</button></div>` : "";
+  if (goalEditing || !target) {
+    if (!goalEditing) { $("goal").innerHTML = `<div class="goal-row"><button class="link" type="button" data-goal-edit>Set a ${year} reading goal</button></div>${undatedHint}`; return; }
+    $("goal").innerHTML = `<form id="goalForm"><label for="goalInput">Books to finish in ${year}</label><input id="goalInput" type="number" min="1" max="999" step="1" value="${target || ""}" required><button class="primary" type="submit">Save goal</button><button class="ghost" type="button" data-goal-cancel>Cancel</button></form>`;
+    setTimeout(() => { const i = $("goalInput"); if (i) i.focus(); }, 0);
+    return;
+  }
+  const start = new Date(year, 0, 1), end = new Date(year + 1, 0, 1);
+  const frac = Math.min(1, (Date.now() - start) / (end - start));
+  const expected = target * frac;
+  const diff = Math.round(n - expected);
+  let pace, cls = "";
+  if (n >= target) { pace = "Goal reached"; cls = "ahead"; }
+  else if (diff > 0) { pace = `${diff} ahead of pace`; cls = "ahead"; }
+  else if (diff < 0) { pace = `${-diff} behind pace`; cls = "behind"; }
+  else pace = "On pace";
+  const pct = Math.min(100, n / target * 100);
+  $("goal").innerHTML = `<div class="goal-row"><span><b>${n}</b> of <b>${target}</b> books in ${year}</span><span class="pace ${cls}">${pace}</span><button class="link" type="button" data-goal-edit>Edit goal</button></div>
+    <div class="bar goalbar" role="progressbar" aria-valuemin="0" aria-valuemax="${target}" aria-valuenow="${n}" aria-label="${year} goal progress"><span style="width:${pct}%"></span><i style="left:calc(${frac * 100}% - 1px)" title="Where you'd be on an even pace today"></i></div>${undatedHint}`;
+}
+
+$("goal").addEventListener("click", e => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.goalEdit !== undefined) { goalEditing = true; renderGoal(); }
+  else if (t.dataset.goalCancel !== undefined) { goalEditing = false; renderGoal(); }
+  else if (t.dataset.undated !== undefined) {
+    tab = "finished"; onlyUndated = true; $("onlyUndated").checked = true; query = ""; $("q").value = ""; genre = "";
+    try { localStorage.setItem("shelf-tab", tab); } catch (err) {}
+    render(); $("tabs").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+});
+$("goal").addEventListener("submit", async e => {
+  e.preventDefault();
+  const v = Math.round(Number($("goalInput").value));
+  if (!(v > 0)) return;
+  goals = { ...goals, [String(curYear())]: v };
+  goalEditing = false; renderGoal();
+  if (db) { try { await db.doc("meta/goals").set({ targets: goals }); } catch (err) { showErr(); } }
+  else { try { localStorage.setItem("shelf-goals", JSON.stringify(goals)); } catch (err) {} }
+});
+
+/* ---------- tabs + tools ---------- */
+function renderTabs() {
+  const counts = (key) => books.filter(b => b.status === key && matchesFilters(b)).length;
+  $("tabs").innerHTML = SHELVES.map(s => `<button class="tab" role="tab" data-tab="${s.key}" aria-selected="${s.key === tab}">${s.label}<span class="n">${counts(s.key)}</span></button>`).join("")
+    + `<button class="tab stats-tab" role="tab" data-tab="stats" aria-selected="${tab === "stats"}">Stats</button>`;
+}
+
+let lastGenreOpts = "";
+function renderTools() {
+  const isStats = tab === "stats";
+  $("tools").hidden = isStats;
+  if (isStats) return;
+  const gc = genreCounts(books.filter(b => b.status === tab));
+  if (genre && !gc.some(([g]) => g === genre)) gc.push([genre, 0]);
+  const html = `<option value="">All genres</option>` + gc.map(([g, n]) => `<option value="${esc(g)}">${esc(g)} (${n})</option>`).join("");
+  if (html !== lastGenreOpts) { $("genre").innerHTML = html; lastGenreOpts = html; }
+  $("genre").value = genre;
+  $("genre").hidden = !gc.length;
+  $("sort").value = sortBy;
+  $("onlyWrap").hidden = tab !== "finished";
+}
+
+/* ---------- list ---------- */
+function progressRow(b) {
+  const p = clampPct(b.progress);
+  const left = b.runtimeMin ? ` · ${fmtHrs(b.runtimeMin * (100 - p) / 100)} left` : "";
+  return `<div class="prog"><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}" aria-label="Progress"><span style="width:${p}%"></span></div><span class="pct">${p}%${left}</span></div>`;
+}
+
+function renderList() {
+  let shown = books.filter(b => b.status === tab && matchesFilters(b));
+  if (tab === "finished" && onlyUndated) shown = shown.filter(b => !b.finishedAt);
+  shown = sorted(shown);
+  if (!shown.length) {
+    const filtered = query || genre || ownedOnly || (tab === "finished" && onlyUndated);
+    const msg = filtered
+      ? (tab === "finished" && onlyUndated && !query && !genre ? "Every finished book has a date. Nice." : "No books match. Try a different search or genre.")
+      : { reading: "Nothing in progress. Move a book here from Want to read, or import from Audible.", want: "Your queue is empty. Add a title above.", finished: "No finished books yet. Mark one done when you get there.", dnf: "No abandoned books. When one isn't working for you, use Did not finish on the Reading shelf.", library: "Books you own but haven't queued up land here. Move one to Want to read or Reading from Edit." }[tab];
+    $("list").innerHTML = `<div class="empty">${msg}</div>`;
+    return;
+  }
+  $("list").innerHTML = shown.map(b => {
+    const stars = visitor
+      ? (b.rating ? `<span role="img" aria-label="Rated ${b.rating} of 5">${[1,2,3,4,5].map(n => `<span class="star static ${b.rating >= n ? "on" : ""}" aria-hidden="true">★</span>`).join("")}</span>` : "")
+      : [1,2,3,4,5].map(n => `<button class="star ${b.rating >= n ? "on" : ""}" data-rate="${n}" data-id="${b.id}" aria-label="Rate ${n} of 5">★</button>`).join("");
+    const isOpen = openId === b.id;
+    const gen = (b.genres || [])[0];
+    const stopped = clampPct(b.progress);
+    const when = b.status === "finished" ? (b.finishedAt ? `Finished ${fmtDay(b.finishedAt)}` : "Finish date not set")
+      : b.status === "dnf" ? [stopped ? `Stopped at ${stopped}%` : "", b.dnfAt ? `Set aside ${fmtDay(b.dnfAt)}` : ""].filter(Boolean).join(" · ")
+      : "";
+    return `<article class="book">
+      <div class="t">${esc(b.title)}</div>
+      <div class="a">${esc(b.author) || "Unknown author"}${gen ? ` <span class="gen">· ${esc(gen)}</span>` : ""}</div>
+      <div class="meta">
+        ${b.favorite ? `<span class="chip fav">Favorite</span>` : ""}
+        ${b.owned ? `<span class="chip own">Owned</span>` : ""}
+        ${b.source === "audible" ? `<span class="chip src">Audible</span>` : ""}
+        ${b.status === "finished" ? `<div class="stars">${stars}</div>` : `<span class="chip">${SHELVES.find(s => s.key === b.status).label}</span>`}
+      </div>
+      ${b.status === "reading" ? progressRow(b) : ""}
+      ${when && !isOpen ? `<div class="when">${when}</div>` : ""}
+      ${b.notes && !isOpen && !visitor ? `<div class="note">${esc(b.notes)}</div>` : ""}
+      ${isOpen ? `<div class="edit">
+        <div class="row">
+          <select id="st-${b.id}" data-status="${b.id}" aria-label="Shelf">${SHELVES.map(s => `<option value="${s.key}" ${s.key === b.status ? "selected" : ""}>${s.label}</option>`).join("")}</select>
+          <button class="ghost" data-fav="${b.id}">${b.favorite ? "Remove favorite" : "Mark favorite"}</button>
+          <button class="ghost" data-own="${b.id}">${b.owned ? "Don't own it" : "I own this"}</button>
+          ${b.status === "reading" ? `<label class="pin">Progress <input type="number" id="pg-${b.id}" data-progress="${b.id}" min="0" max="100" step="1" value="${clampPct(b.progress)}">%</label>` : ""}
+          ${b.status === "finished" ? `<label class="pin">Finished on <input type="date" id="fd-${b.id}" data-findate="${b.id}" value="${esc(b.finishedAt || "")}" max="${todayStr()}"></label>` : ""}
+        </div>
+        <textarea id="nt-${b.id}" data-notes="${b.id}" placeholder="Notes, quotes, thoughts">${esc(b.notes)}</textarea>
+        <div class="row">
+          <button class="ghost" data-close="${b.id}">Done</button>
+          ${confirmId === b.id
+            ? `<button class="ghost danger" data-del="${b.id}">Yes, remove it</button><button class="ghost" data-nodel="${b.id}">Keep</button>`
+            : `<button class="ghost danger" data-askdel="${b.id}">Remove</button>`}
+        </div>
+      </div>` : visitor ? "" : `<div class="actions"><button class="toggle" data-open="${b.id}">Edit</button>${b.status === "reading" ? `<button class="toggle dnf-btn" data-dnf="${b.id}">Did not finish</button>` : ""}</div>`}
+    </article>`;
+  }).join("");
+}
+
+/* ---------- stats ---------- */
+function hbars(rows, opts = {}) {
+  if (!rows.length) return `<p class="hint">${opts.empty || "Nothing to show yet."}</p>`;
+  const max = Math.max(...rows.map(r => r.n), 1);
+  return `<div class="hb">${rows.map(r => `<div class="hb-row tip ${opts.cls || ""}" tabindex="0" data-tip="${esc(r.tip || `${r.label}: ${r.n}`)}"><span class="hb-l">${esc(r.label)}</span><span class="hb-t"><span style="width:${r.n / max * 100}%"></span></span><span class="hb-n">${r.n}</span></div>`).join("")}</div>`;
+}
+
+function renderStats() {
+  const year = curYear();
+  const done = books.filter(b => b.status === "finished");
+  const reading = books.filter(b => b.status === "reading");
+  const listenedMin = done.reduce((s, b) => s + (b.runtimeMin || 0), 0) + reading.reduce((s, b) => s + (b.runtimeMin || 0) * clampPct(b.progress) / 100, 0);
+  const rated = done.filter(b => b.rating);
+  const avg = rated.length ? (rated.reduce((s, b) => s + b.rating, 0) / rated.length).toFixed(1) : "–";
+  const timed = done.filter(b => b.runtimeMin);
+  const avgLen = timed.length ? fmtHrs(timed.reduce((s, b) => s + b.runtimeMin, 0) / timed.length) : "–";
+
+  const dated = finishedThisYear();
+  const perMonth = Array(12).fill(0);
+  dated.forEach(b => { const m = Number(b.finishedAt.slice(5, 7)) - 1; if (m >= 0 && m < 12) perMonth[m]++; });
+  const mMax = Math.max(...perMonth, 1);
+  const nowM = new Date().getMonth();
+  const undated = undatedFinished().length;
+
+  const ratingRows = [5, 4, 3, 2, 1].map(r => ({ label: "★".repeat(r), n: done.filter(b => b.rating === r).length, tip: `${r} star${r === 1 ? "" : "s"}: ${done.filter(b => b.rating === r).length} books` }));
+  const authorMap = new Map();
+  done.forEach(b => { const a = (b.author || "").split(",")[0].trim(); if (a) authorMap.set(a, (authorMap.get(a) || 0) + 1); });
+  const authorRows = [...authorMap.entries()].filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8).map(([label, n]) => ({ label, n, tip: `${label}: ${n} finished` }));
+  const genreRows = genreCounts(done).slice(0, 8).map(([label, n]) => ({ label, n, tip: `${label}: ${n} finished` }));
+
+  $("list").innerHTML = `<div class="statsview">
+    <div class="tiles">
+      <div class="tile"><b>${done.length}</b><span>books finished</span></div>
+      <div class="tile"><b>${Math.round(listenedMin / 60).toLocaleString()}</b><span>hours listened</span></div>
+      <div class="tile"><b>${avg}</b><span>average rating</span></div>
+      <div class="tile"><b>${avgLen}</b><span>average length</span></div>
+    </div>
+
+    <section class="panel" aria-label="Books finished by month in ${year}">
+      <div class="panel-head"><h3>Finished by month, ${year}</h3><span class="hint">${dated.length} dated${undated ? ` · ${undated} without a date` : ""}</span></div>
+      ${dated.length ? `<div>
+        <div class="months">${perMonth.map((n, i) => `<div class="mcol tip${i > nowM ? " future" : ""}" tabindex="0" data-tip="${MONTHS[i]}: ${n} book${n === 1 ? "" : "s"}">${n ? `<span class="mval">${n}</span>` : ""}<div class="mbar" style="height:${n / mMax * 100}%"></div></div>`).join("")}</div>
+        <div class="mlabels">${MONTHS.map(m => `<span>${m[0]}</span>`).join("")}</div>
+      </div>` : `<p class="hint">No finish dates in ${year} yet. Audible doesn't export when you finished a book, so add dates in Edit on the Finished shelf and they'll show up here.</p>`}
+    </section>
+
+    <div class="two">
+      <section class="panel"><h3>Your ratings</h3>${hbars(ratingRows, { cls: "star-row", empty: "Rate a finished book to see this." })}</section>
+      <section class="panel"><h3>Top genres</h3>${hbars(genreRows, { empty: "Run an Audible import to pull in genres." })}</section>
+    </div>
+    <section class="panel"><h3>Authors you keep coming back to</h3>${hbars(authorRows, { empty: "No author with more than one finished book yet." })}</section>
+  </div>`;
+}
+
+function render() {
+  renderHeader();
+  renderTabs();
+  renderTools();
+  if (tab === "stats") renderStats(); else renderList();
+}
+
+/* ---------- storage ---------- */
+function strip(b) { const { id, ...rest } = b; return rest; }
+function persistLocal() { try { localStorage.setItem("shelf-books", JSON.stringify(books)); } catch (e) {} }
+function showErr() { say("Could not save that change. Check your connection and try again."); }
+
+async function save(id, patch, quiet) {
+  const b = books.find(x => x.id === id); if (!b) return;
+  Object.assign(b, patch, { updatedAt: new Date().toISOString() });
+  if (!quiet) render();
+  if (db) { try { await db.collection("books").doc(id).set(strip(b)); } catch (e) { showErr(); throw e; } }
+  else persistLocal();
+}
+/* Background detail fill (genres, length): keeps the book's place in "Recently updated". */
+async function saveDetails(id, patch) {
+  const b = books.find(x => x.id === id); if (!b) return;
+  Object.assign(b, patch);
+  if (db) { try { await db.collection("books").doc(id).set(strip(b)); } catch (e) { showErr(); throw e; } }
+  else persistLocal();
+}
+async function addBook(data, quiet) {
+  if (db) {
+    const ref = db.collection("books").doc();
+    books.push({ id: ref.id, ...data }); if (!quiet) render();
+    try { await ref.set(data); } catch (e) { showErr(); throw e; }
+  } else {
+    books.push({ id: "b" + Date.now() + Math.random().toString(36).slice(2, 6), ...data }); persistLocal(); if (!quiet) render();
+  }
+}
+async function remove(id) {
+  books = books.filter(b => b.id !== id); openId = null; confirmId = null; render();
+  if (db) { try { await db.collection("books").doc(id).delete(); } catch (e) { showErr(); } } else persistLocal();
+}
+async function saveLastImport(at, summary) {
+  lastImport = at;
+  if (db) { try { await db.doc("meta/audible").set({ at, summary }); } catch (e) {} }
+  else { try { localStorage.setItem("shelf-audible", at); } catch (e) {} }
+}
+
+/* ---------- Audible import ---------- */
+function parseDelimited(text, delim) {
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"' && f === "") q = true;
+    else if (c === delim) { row.push(f); f = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(f); rows.push(row); row = []; f = ""; }
+    else f += c;
+  }
+  if (f !== "" || row.length) { row.push(f); rows.push(row); }
+  const head = (rows.shift() || []).map(h => h.trim());
+  return rows.filter(r => r.length > 1 || r[0]).map(r => Object.fromEntries(head.map((h, i) => [h, r[i] ?? ""])));
+}
+
+/* Audible genre names joined with ", " (a few names contain a comma themselves). */
+const COMMA_GENRES = ["Mystery, Thriller & Suspense"];
+function parseGenres(s) {
+  if (Array.isArray(s)) return [...new Set(s.map(String))];
+  let t = String(s || "");
+  COMMA_GENRES.forEach((g, i) => { t = t.split(g).join(`\u0000${i}\u0000`); });
+  const out = t.split(", ").map(x => x.replace(/\u0000(\d+)\u0000/g, (_, i) => COMMA_GENRES[i]).trim()).filter(x => x && x !== "-");
+  return [...new Set(out)];
+}
+const sameList = (a, b) => (a || []).length === (b || []).length && (a || []).every((x, i) => x === b[i]);
+
+function parseExport(text) {
+  const t = text.replace(/^﻿/, "").trimStart();
+  let rows;
+  if (t[0] === "[") rows = JSON.parse(t);
+  else rows = parseDelimited(t, t.split(/\r?\n/, 1)[0].includes("\t") ? "\t" : ",");
+  if (!Array.isArray(rows) || !rows.length || !rows[0] || !("title" in rows[0]) || !("asin" in rows[0])) throw new Error("format");
+  return rows.filter(r => r && r.title).map(r => {
+    const pct = Math.max(0, Math.min(100, parseFloat(r.percent_complete) || 0));
+    const fin = r.is_finished === true || String(r.is_finished).toLowerCase() === "true" || pct >= 99.5;
+    return {
+      asin: String(r.asin || ""),
+      title: String(r.title).trim(),
+      author: String(r.authors || "").trim(),
+      pct, finished: fin, started: !fin && pct > 0,
+      runtimeMin: parseInt(r.runtime_length_min, 10) || 0,
+      genres: parseGenres(r.genres),
+      added: String(r.purchase_date || r.date_added || ""),
+    };
+  });
+}
+
+const norm = (s) => String(s || "").toLowerCase().split(":")[0].replace(/^(the|a|an)\s+/, "").replace(/[^a-z0-9]+/g, " ").trim();
+
+function buildPlan(items) {
+  const p = { finish: [], progress: [], details: [], newReading: [], newFinished: [], newWant: [], keptFinished: [], total: items.length };
+  const claimed = new Set();
+  for (const it of items) {
+    const match = (it.asin && books.find(b => b.asin === it.asin)) || books.find(b => !claimed.has(b.id) && norm(b.title) === norm(it.title));
+    if (match) {
+      claimed.add(match.id);
+      const needsDetails = !match.asin || (it.genres.length && !sameList(match.genres, it.genres)) || (it.runtimeMin && !match.runtimeMin);
+      if (it.finished && match.status !== "finished") p.finish.push({ book: match, it });
+      else if (it.started && (match.status === "finished" || match.status === "dnf")) { p.keptFinished.push({ book: match, it }); if (needsDetails) p.details.push({ book: match, it }); }
+      else if (it.started && (match.status !== "reading" || clampPct(match.progress) !== clampPct(it.pct))) p.progress.push({ book: match, it });
+      else if (needsDetails) p.details.push({ book: match, it });
+    } else if (it.finished) p.newFinished.push(it);
+    else if (it.started) p.newReading.push(it);
+    else p.newWant.push(it);
+  }
+  p.addFinished = true;
+  p.addWant = false;
+  return p;
+}
+
+function listItems(arr, fn) {
+  const shown = arr.slice(0, 40).map(fn).join("");
+  return `<ul>${shown}${arr.length > 40 ? `<li>and ${arr.length - 40} more</li>` : ""}</ul>`;
+}
+function group(count, label, body, extra, off) {
+  return `<details class="grp${off ? " off" : ""}"><summary><span class="count">${count}</span><span>${label}</span></summary>${body}</details>${extra || ""}`;
+}
+
+function planChangeCount(p) {
+  return p.finish.length + p.progress.length + p.details.length + p.newReading.length + (p.addFinished ? p.newFinished.length : 0) + (p.addWant ? p.newWant.length : 0);
+}
+
+function renderPlan() {
+  const p = plan;
+  const changes = planChangeCount(p);
+  const parts = [];
+  if (p.progress.length) parts.push(group(p.progress.length, "in progress, will move to Reading with your Audible percent", listItems(p.progress, x => `<li>${esc(x.book.title)} <span>${clampPct(x.book.progress)}% → ${clampPct(x.it.pct)}%</span></li>`)));
+  if (p.finish.length) parts.push(group(p.finish.length, "finished on Audible, will move to Finished", listItems(p.finish, x => `<li>${esc(x.book.title)}</li>`)));
+  if (p.newReading.length) parts.push(group(p.newReading.length, "in progress and not on your shelf, will be added to Reading", listItems(p.newReading, it => `<li>${esc(it.title)} <span>${clampPct(it.pct)}%</span></li>`)));
+  if (p.details.length) parts.push(group(p.details.length, "will get Audible details (genres and length)", listItems(p.details, x => `<li>${esc(x.book.title)}${x.it.genres[0] ? ` <span>${esc(x.it.genres[0])}</span>` : ""}</li>`)));
+  if (p.newFinished.length) parts.push(`<div class="grp${p.addFinished ? "" : " off"}"><details><summary><span class="count">${p.newFinished.length}</span><span>finished and not on your shelf</span></summary>${listItems(p.newFinished, it => `<li>${esc(it.title)}</li>`)}</details><label><input type="checkbox" id="optFinished" ${p.addFinished ? "checked" : ""}> Add these to Finished</label></div>`);
+  if (p.newWant.length) parts.push(`<div class="grp${p.addWant ? "" : " off"}"><details><summary><span class="count">${p.newWant.length}</span><span>owned but not started</span></summary>${listItems(p.newWant, it => `<li>${esc(it.title)}</li>`)}</details><label><input type="checkbox" id="optWant" ${p.addWant ? "checked" : ""}> Add these to Want to read</label></div>`);
+  if (p.keptFinished.length) parts.push(group(p.keptFinished.length, "marked Finished or Did not finish here but partway on Audible, left as is", listItems(p.keptFinished, x => `<li>${esc(x.book.title)} <span>${clampPct(x.it.pct)}%</span></li>`), "", true));
+
+  $("impSub").textContent = `${p.fileName} · ${p.total} titles in your Audible library`;
+  $("impBody").innerHTML = parts.length
+    ? `<div class="groups">${parts.join("")}</div>`
+    : `<p class="notice">Your shelf already matches Audible. Nothing to change.</p>`;
+  const btn = $("impApply");
+  btn.disabled = false;
+  btn.textContent = changes ? `Apply ${changes} change${changes === 1 ? "" : "s"}` : "Close";
+  btn.dataset.mode = changes ? "apply" : "close";
+}
+
+$("impBtn").addEventListener("click", () => $("impInput").click());
+$("impInput").addEventListener("change", async e => {
+  const file = e.target.files && e.target.files[0]; e.target.value = "";
+  if (!file) return;
+  say("");
+  try {
+    const items = parseExport(await file.text());
+    plan = buildPlan(items); plan.fileName = file.name;
+    renderPlan();
+    $("importer").hidden = false;
+    $("importer").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (err) {
+    say("That file doesn't look like an Audible library export. Run the export command under \"How to export your Audible library\" and pick the audible-library.json file it creates.");
+  }
+});
+$("impBody").addEventListener("change", e => {
+  if (e.target.id === "optFinished") plan.addFinished = e.target.checked;
+  if (e.target.id === "optWant") plan.addWant = e.target.checked;
+  renderPlan();
+});
+$("impCancel").addEventListener("click", () => { plan = null; $("importer").hidden = true; });
+
+$("impApply").addEventListener("click", async () => {
+  const btn = $("impApply");
+  if (!plan) return;
+  if (btn.dataset.mode === "close") { plan = null; $("importer").hidden = true; return; }
+  const p = plan;
+  const now = new Date().toISOString();
+  const today = todayStr();
+  const audio = it => ({ asin: it.asin, source: "audible", runtimeMin: it.runtimeMin, genres: it.genres });
+  const base = it => ({ title: it.title, author: it.author, rating: 0, notes: "", favorite: false, ...audio(it) });
+  const ops = [];
+  p.progress.forEach(({ book, it }) => ops.push(() => save(book.id, { ...audio(it), status: "reading", progress: clampPct(it.pct), startedAt: book.startedAt || today }, true)));
+  p.finish.forEach(({ book, it }) => ops.push(() => save(book.id, { ...audio(it), status: "finished", progress: 100, finishedAt: book.finishedAt || today }, true)));
+  p.details.forEach(({ book, it }) => ops.push(() => saveDetails(book.id, audio(it))));
+  p.newReading.forEach(it => ops.push(() => addBook({ ...base(it), status: "reading", progress: clampPct(it.pct), startedAt: today, updatedAt: now }, true)));
+  if (p.addFinished) p.newFinished.forEach(it => ops.push(() => addBook({ ...base(it), status: "finished", progress: 100, finishedAt: "", updatedAt: it.added || now }, true)));
+  if (p.addWant) p.newWant.forEach(it => ops.push(() => addBook({ ...base(it), status: "want", progress: 0, updatedAt: it.added || now }, true)));
+
+  btn.disabled = true;
+  let done = 0, failed = 0;
+  for (const op of ops) {
+    btn.textContent = `Saving ${done + 1} of ${ops.length}...`;
+    try { await op(); } catch (e) { failed++; }
+    done++;
+  }
+  const moved = p.progress.length + p.newReading.length;
+  const fin = p.finish.length + (p.addFinished ? p.newFinished.length : 0);
+  const bits = [`${moved} in progress`, `${fin} finished`];
+  if (p.addWant && p.newWant.length) bits.push(`${p.newWant.length} added to Want to read`);
+  if (p.details.length) bits.push(`${p.details.length} given genres and details`);
+  const summary = bits.join(", ");
+  await saveLastImport(now, summary);
+  plan = null; $("importer").hidden = true;
+  if (moved) tab = "reading";
+  try { localStorage.setItem("shelf-tab", tab); } catch (e) {}
+  render();
+  if (failed) say(`Imported with ${failed} change${failed === 1 ? "" : "s"} that didn't save. Check your connection and import the same file again; it's safe to repeat.`);
+  else say(`Audible import done: ${summary}.`, true);
+});
+
+$("how").addEventListener("click", e => {
+  const b = e.target.closest("[data-copy]"); if (!b) return;
+  const code = $(b.dataset.copy);
+  const flash = (t) => { b.textContent = t; setTimeout(() => { b.textContent = "Copy"; }, 1500); };
+  const select = () => { const r = document.createRange(); r.selectNodeContents(code); const s = getSelection(); s.removeAllRanges(); s.addRange(r); flash("Selected"); };
+  try { navigator.clipboard.writeText(code.textContent).then(() => flash("Copied"), select); } catch (err) { select(); }
+});
+
+/* ---------- shelf interactions ---------- */
+$("tabs").addEventListener("click", e => {
+  const t = e.target.closest("[data-tab]"); if (!t) return;
+  tab = t.dataset.tab; openId = null; confirmId = null;
+  if (tab !== "finished") { onlyUndated = false; $("onlyUndated").checked = false; }
+  try { localStorage.setItem("shelf-tab", tab); } catch (err) {}
+  render();
+});
+
+$("q").addEventListener("input", e => { query = e.target.value.trim(); openId = null; renderTabs(); renderList(); });
+$("genre").addEventListener("change", e => { genre = e.target.value; openId = null; renderTabs(); renderList(); });
+$("sort").addEventListener("change", e => { sortBy = e.target.value; try { localStorage.setItem("shelf-sort", sortBy); } catch (err) {} renderList(); });
+$("onlyUndated").addEventListener("change", e => { onlyUndated = e.target.checked; renderList(); });
+$("ownedOnly").addEventListener("change", e => { ownedOnly = e.target.checked; openId = null; renderTabs(); renderList(); });
+
+$("list").addEventListener("click", e => {
+  if (visitor) return;
+  const el = e.target.closest("button"); if (!el) return;
+  const d = el.dataset;
+  if (d.rate) { const b = books.find(x => x.id === d.id); save(d.id, { rating: b.rating === +d.rate ? 0 : +d.rate }).catch(() => {}); }
+  else if (d.open) { openId = d.open; confirmId = null; render(); }
+  else if (d.close) { openId = null; confirmId = null; render(); }
+  else if (d.fav) { const b = books.find(x => x.id === d.fav); save(d.fav, { favorite: !b.favorite }).catch(() => {}); }
+  else if (d.own) { const b = books.find(x => x.id === d.own); save(d.own, { owned: !b.owned }).catch(() => {}); }
+  else if (d.askdel) { confirmId = d.askdel; render(); }
+  else if (d.nodel) { confirmId = null; render(); }
+  else if (d.del) { remove(d.del); }
+  else if (d.dnf) {
+    const b = books.find(x => x.id === d.dnf); if (!b) return;
+    undo = { id: b.id, status: b.status, dnfAt: b.dnfAt || "" };
+    save(b.id, { status: "dnf", dnfAt: todayStr() }).catch(() => {});
+    const n = $("notice");
+    n.hidden = false; n.classList.remove("ok");
+    n.innerHTML = `Moved <b>${esc(b.title)}</b> to Did not finish.<button class="link" type="button" id="undoBtn">Undo</button>`;
+  }
+});
+
+$("notice").addEventListener("click", e => {
+  if (e.target.id !== "undoBtn" || !undo) return;
+  const u = undo; undo = null;
+  save(u.id, { status: u.status, dnfAt: u.dnfAt }).catch(() => {});
+  say("");
+});
+
+$("list").addEventListener("change", e => {
+  const el = e.target;
+  const today = todayStr();
+  if (el.dataset.status) {
+    const b = books.find(x => x.id === el.dataset.status);
+    const patch = { status: el.value };
+    if (el.value === "finished") { patch.finishedAt = today; patch.progress = 100; }
+    if (el.value === "reading") { patch.startedAt = b.startedAt || today; if (b.progress >= 100) patch.progress = 0; }
+    if (el.value === "dnf") patch.dnfAt = b.dnfAt || today;
+    openId = null; save(el.dataset.status, patch).catch(() => {});
+  } else if (el.dataset.progress) {
+    save(el.dataset.progress, { progress: clampPct(el.value) }).catch(() => {});
+  } else if (el.dataset.findate) {
+    const v = /^\d{4}-\d{2}-\d{2}$/.test(el.value) ? el.value : "";
+    save(el.dataset.findate, { finishedAt: v }, true).then(() => { renderHeader(); renderTabs(); }).catch(() => {});
+  } else if (el.dataset.notes) {
+    save(el.dataset.notes, { notes: el.value.trim() }).catch(() => {});
+  }
+});
+
+$("addForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const title = $("newTitle").value.trim(); if (!title) return;
+  const data = { title, author: $("newAuthor").value.trim(), status: "want", rating: 0, notes: "", favorite: false, progress: 0, updatedAt: new Date().toISOString() };
+  $("newTitle").value = ""; $("newAuthor").value = "";
+  tab = "want";
+  addBook(data).catch(() => {});
+});
+
+(async () => {
+  render();
+  db = window.claude && window.claude.use ? await window.claude.use("db") : null;
+  if (db) {
+    try {
+      const user = await window.claude.use("user");
+      visitor = !(user && await user.isOwner());
+    } catch (e) { visitor = true; }
+    document.body.classList.toggle("visitor", visitor);
+    if (visitor) { openId = null; plan = null; }
+    db.collection("books").onSnapshot(snap => {
+      books = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#list .edit")) { renderHeader(); renderTabs(); return; }
+      render();
+    }, () => say("Lost the connection to your shelf. Reload the page to reconnect."));
+    db.doc("meta/audible").onSnapshot(snap => {
+      const d = snap && snap.exists ? snap.data() : null;
+      lastImport = d && d.at ? d.at : null;
+      renderHeader();
+    }, () => {});
+    db.doc("meta/goals").onSnapshot(snap => {
+      const d = snap && snap.exists ? snap.data() : null;
+      goals = (d && d.targets) || {};
+      if (!goalEditing) renderGoal();
+    }, () => {});
+  } else {
+    try { books = JSON.parse(localStorage.getItem("shelf-books") || "[]"); } catch (e) { books = []; }
+    try { lastImport = localStorage.getItem("shelf-audible"); } catch (e) {}
+    try { goals = JSON.parse(localStorage.getItem("shelf-goals") || "{}"); } catch (e) { goals = {}; }
+    say("This copy of the page can't reach your shelf, so it's empty. Open Erik's Shelf from your Claude artifacts to see your books. Anything added here is saved only in this browser.");
+    render();
+  }
+})();
+</script>
