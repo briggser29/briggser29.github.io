@@ -2,14 +2,14 @@
 
 Usage: python3 tools/build.py <books_dir> [goal_for_this_year]
   books_dir: folder of <doc_id>.json files exported from the Shelf's "books" collection.
-Private fields (notes, ISBN, ASIN) are never copied into the public page.
+Private fields (notes, quotes, Audible IDs) are never copied into the public page.
 """
 import datetime, glob, json, os, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 KEEP = ["title", "author", "status", "progress", "rating", "finishedAt", "dnfAt", "startedAt",
-        "genres", "runtimeMin", "owned", "source", "updatedAt", "favorite", "lastPlayedAt"]
+        "genres", "runtimeMin", "owned", "source", "updatedAt", "favorite", "lastPlayedAt", "series", "seriesSeq", "coverUrl", "isbn"]
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 def main():
@@ -33,7 +33,7 @@ def main():
     end = s.index("})();", start) + len("})();")
     snap = {"books": books, "goals": goals}
     boot = ("const SNAPSHOT = " + json.dumps(snap, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/") + ";\n"
-            "visitor = true;\ndocument.body.classList.add(\"visitor\");\n"
+            "visitor = true;\nSHOW_COVERS = true;\ndocument.body.classList.add(\"visitor\");\n"
             "books = SNAPSHOT.books;\ngoals = SNAPSHOT.goals;\nrender();")
     s = s[:start] + boot + s[end:]
     head_end = s.index("</style>") + len("</style>")

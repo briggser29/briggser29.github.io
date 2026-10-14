@@ -157,6 +157,40 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .hb-t span { display: block; height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; min-width: 2px; }
 .hb-n { font-family: var(--mono); font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
 .hb-row.star-row .hb-l { color: var(--brass); letter-spacing: 1px; }
+.yearpick { display: flex; flex-wrap: wrap; gap: 6px; }
+.yearpick button { appearance: none; background: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font: 500 13px var(--mono); color: var(--muted); cursor: pointer; font-variant-numeric: tabular-nums; }
+.yearpick button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.toplist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.toplist li { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.toplist li b { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.toplist span { color: var(--muted); font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.series { display: flex; flex-direction: column; padding-top: 12px; }
+.ser { border-bottom: 1px solid var(--line); padding: 14px 4px; }
+.ser summary { list-style: none; cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
+.ser summary::-webkit-details-marker { display: none; }
+.ser-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.ser-name { font-family: var(--display); font-size: 19px; line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
+.ser .bar { max-width: none; }
+.ser-next { font-size: 14px; color: var(--muted); }
+.ser-next b { color: var(--ink); font-weight: 500; }
+.ser-list { margin: 10px 0 0; padding: 0 0 0 4px; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.ser-list li { display: grid; grid-template-columns: 3.5em minmax(0, 1fr) auto; gap: 8px; align-items: baseline; }
+.ser-list .seq { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.ser-list .ser-st { font-family: var(--mono); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.ser-list li.st-finished .ser-st { color: var(--accent); }
+.ser-list li.st-reading .ser-st { color: var(--brass); }
+.quotes { display: flex; flex-direction: column; gap: 22px; padding-top: 20px; }
+.quote { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.quote blockquote { margin: 0; padding-left: 14px; border-left: 2px solid var(--brass); font-family: var(--display); font-size: 18px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.quote figcaption { font-size: 13px; color: var(--muted); padding-left: 16px; }
+.qedit { display: flex; flex-direction: column; gap: 8px; }
+.qedit .q-row { display: flex; gap: 10px; align-items: flex-start; }
+.qedit .q-row blockquote { margin: 0; flex: 1; min-width: 0; padding-left: 10px; border-left: 2px solid var(--brass); font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.qedit label { font-size: 13px; color: var(--muted); }
+.book-wrap { display: flex; gap: 14px; border-bottom: 1px solid var(--line); padding-left: 4px; }
+.book-wrap .book { flex: 1; min-width: 0; border-bottom: 0; padding-left: 0; }
+.cover { flex: 0 0 56px; width: 56px; height: 84px; margin-top: 16px; border-radius: 3px; background: var(--accent-soft); overflow: hidden; }
+.cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
 @media (max-width: 640px) { .two { grid-template-columns: 1fr; } .hb-row { grid-template-columns: minmax(0, 9em) minmax(0, 1fr) 3ch; } }
 
@@ -243,6 +277,9 @@ const SHELVES = [
   { key: "library", label: "Library" },
 ];
 let ownedOnly = false;
+let statsYear = "";
+let SHOW_COVERS = false;
+const EXTRA_TABS = ["series", "quotes", "stats"];
 let visitor = false;
 let undo = null;
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -267,7 +304,7 @@ const fmtAgo = (iso) => {
 };
 let onlyUndated = false;
 
-try { const t = localStorage.getItem("shelf-tab"); if (t === "stats" || SHELVES.some(s => s.key === t)) tab = t; } catch (e) {}
+try { const t = localStorage.getItem("shelf-tab"); if (EXTRA_TABS.includes(t) || SHELVES.some(s => s.key === t)) tab = t; } catch (e) {}
 try { const s = JSON.parse(localStorage.getItem("shelf-sorts") || "null"); if (s && typeof s === "object") sorts = { ...sorts, ...s }; } catch (e) {}
 sortBy = sorts[tab] || "recent";
 
@@ -378,12 +415,14 @@ $("goal").addEventListener("submit", async e => {
 function renderTabs() {
   const counts = (key) => books.filter(b => b.status === key && matchesFilters(b)).length;
   $("tabs").innerHTML = SHELVES.map(s => `<button class="tab" role="tab" data-tab="${s.key}" aria-selected="${s.key === tab}">${s.label}<span class="n">${counts(s.key)}</span></button>`).join("")
-    + `<button class="tab stats-tab" role="tab" data-tab="stats" aria-selected="${tab === "stats"}">Stats</button>`;
+    + `<button class="tab stats-tab" role="tab" data-tab="series" aria-selected="${tab === "series"}">Series</button>`
+    + (visitor ? "" : `<button class="tab" role="tab" data-tab="quotes" aria-selected="${tab === "quotes"}">Quotes<span class="n">${books.reduce((n, b) => n + (b.quotes || []).length, 0)}</span></button>`)
+    + `<button class="tab" role="tab" data-tab="stats" aria-selected="${tab === "stats"}">Stats</button>`;
 }
 
 let lastGenreOpts = "";
 function renderTools() {
-  const isStats = tab === "stats";
+  const isStats = EXTRA_TABS.includes(tab);
   $("tools").hidden = isStats;
   if (isStats) return;
   const gc = genreCounts(books.filter(b => b.status === tab));
@@ -428,7 +467,9 @@ function renderList() {
     const when = b.status === "finished" ? (b.finishedAt ? `Finished ${fmtDay(b.finishedAt)}` : "Finish date not set")
       : b.status === "dnf" ? [stopped ? `Stopped at ${stopped}%` : "", b.dnfAt ? `Set aside ${fmtDay(b.dnfAt)}` : ""].filter(Boolean).join(" · ")
       : "";
-    return `<article class="book">
+    const open = SHOW_COVERS ? `<article class="book-wrap">${coverHtml(b)}<div class="book">` : `<article class="book">`;
+    const close = SHOW_COVERS ? `</div></article>` : `</article>`;
+    return `${open}
       <div class="t">${esc(b.title)}</div>
       <div class="a">${esc(b.author) || "Unknown author"}${gen ? ` <span class="gen">· ${esc(gen)}</span>` : ""}</div>
       <div class="meta">
@@ -448,7 +489,13 @@ function renderList() {
           ${b.status === "reading" ? `<label class="pin">Progress <input type="number" id="pg-${b.id}" data-progress="${b.id}" min="0" max="100" step="1" value="${clampPct(b.progress)}">%</label>` : ""}
           ${b.status === "finished" ? `<label class="pin">Finished on <input type="date" id="fd-${b.id}" data-findate="${b.id}" value="${esc(b.finishedAt || "")}" max="${todayStr()}"></label>` : ""}
         </div>
-        <textarea id="nt-${b.id}" data-notes="${b.id}" placeholder="Notes, quotes, thoughts">${esc(b.notes)}</textarea>
+        <textarea id="nt-${b.id}" data-notes="${b.id}" placeholder="Notes and thoughts">${esc(b.notes)}</textarea>
+        <div class="qedit">
+          ${(b.quotes || []).map((q, i) => `<div class="q-row"><blockquote>${esc(q.text)}</blockquote><button class="link" type="button" data-qdel="${b.id}" data-qi="${i}">Remove</button></div>`).join("")}
+          <label for="qt-${b.id}">Save a quote from this book</label>
+          <textarea id="qt-${b.id}" placeholder="Paste or type a quote"></textarea>
+          <div class="row"><button class="ghost" type="button" data-qadd="${b.id}">Save quote</button></div>
+        </div>
         <div class="row">
           <button class="ghost" data-close="${b.id}">Done</button>
           ${confirmId === b.id
@@ -456,8 +503,85 @@ function renderList() {
             : `<button class="ghost danger" data-askdel="${b.id}">Remove</button>`}
         </div>
       </div>` : visitor ? "" : `<div class="actions"><button class="toggle" data-open="${b.id}">Edit</button>${b.status === "reading" ? `<button class="toggle dnf-btn" data-dnf="${b.id}">Did not finish</button>` : ""}</div>`}
-    </article>`;
+    ${close}`;
   }).join("");
+  if (SHOW_COVERS) fillCovers();
+}
+
+/* ---------- covers (public site only; Claude pages block outside images) ---------- */
+function coverSrc(b) {
+  if (b.coverUrl) return b.coverUrl;
+  if (b.isbn) return `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(b.isbn)}-M.jpg?default=false`;
+  return "";
+}
+function coverHtml(b) {
+  const src = coverSrc(b);
+  const q = `${b.title}|${(b.author || "").split(",")[0]}`;
+  return `<div class="cover">${src
+    ? `<img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()">`
+    : `<img alt="" loading="lazy" hidden data-olq="${esc(q)}" onerror="this.remove()">`}</div>`;
+}
+let coverQueue = Promise.resolve();
+function fillCovers() {
+  const imgs = [...document.querySelectorAll("img[data-olq]")].slice(0, 40);
+  imgs.forEach(img => {
+    coverQueue = coverQueue.then(async () => {
+      if (!img.isConnected) return;
+      const q = img.dataset.olq; const key = "olc:" + q;
+      let id = null;
+      try { id = localStorage.getItem(key); } catch (e) {}
+      if (id === null) {
+        const [title, author] = q.split("|");
+        try {
+          const r = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title.split(":")[0])}&author=${encodeURIComponent(author || "")}&limit=1&fields=cover_i`);
+          const j = await r.json(); id = String((j.docs && j.docs[0] && j.docs[0].cover_i) || "");
+        } catch (e) { id = ""; }
+        try { localStorage.setItem(key, id); } catch (e) {}
+      }
+      if (id && img.isConnected) { img.src = `https://covers.openlibrary.org/b/id/${id}-M.jpg`; img.hidden = false; img.removeAttribute("data-olq"); }
+    });
+  });
+}
+
+/* ---------- series ---------- */
+const SEQ = (v) => { const n = parseFloat(String(v || "").replace(/[^0-9.]/g, "")); return isNaN(n) ? 999 : n; };
+const STATUS_LABEL = { reading: "Reading", want: "Want to read", finished: "Read", dnf: "Did not finish", library: "Owned" };
+function seriesGroups() {
+  const m = new Map();
+  books.forEach(b => { if (b.series) { if (!m.has(b.series)) m.set(b.series, []); m.get(b.series).push(b); } });
+  return [...m.entries()].map(([name, list]) => {
+    list.sort((a, b) => SEQ(a.seriesSeq) - SEQ(b.seriesSeq) || sortKey(a.title).localeCompare(sortKey(b.title)));
+    const read = list.filter(b => b.status === "finished").length;
+    const next = list.find(b => b.status === "reading") || list.find(b => b.status !== "finished" && b.status !== "dnf");
+    const active = list.reduce((mx, b) => { const t = b.lastPlayedAt || b.finishedAt || ""; return t > mx ? t : mx; }, "");
+    return { name, list, read, next, active };
+  }).sort((a, b) => ((b.next && b.next.status === "reading") ? 1 : 0) - ((a.next && a.next.status === "reading") ? 1 : 0) || b.active.localeCompare(a.active) || a.name.localeCompare(b.name));
+}
+function renderSeries() {
+  const groups = seriesGroups();
+  if (!groups.length) { $("list").innerHTML = `<div class="empty">No series yet. Run an Audible import to pull in series info.</div>`; return; }
+  $("list").innerHTML = `<div class="series">${groups.map(g => {
+    const pct = Math.round(g.read / g.list.length * 100);
+    const next = g.next
+      ? `<div class="ser-next">${g.next.status === "reading" ? "Reading now" : "Up next"}: <b>${esc(g.next.title)}</b>${g.next.seriesSeq ? ` · #${esc(g.next.seriesSeq)}` : ""}</div>`
+      : `<div class="ser-next">All caught up on what's on your shelf</div>`;
+    return `<details class="ser"><summary>
+        <div class="ser-head"><span class="ser-name">${esc(g.name)}</span><span class="pct">${g.read} of ${g.list.length} read</span></div>
+        <div class="bar" aria-hidden="true"><span style="width:${pct}%"></span></div>
+        ${next}
+      </summary>
+      <ol class="ser-list">${g.list.map(b => `<li class="st-${b.status}"><span class="seq">${b.seriesSeq ? "#" + esc(b.seriesSeq) : ""}</span><span>${esc(b.title)}</span><span class="ser-st">${STATUS_LABEL[b.status] || ""}</span></li>`).join("")}</ol>
+    </details>`;
+  }).join("")}</div>`;
+}
+
+/* ---------- quotes ---------- */
+function renderQuotes() {
+  const all = [];
+  books.forEach(b => (b.quotes || []).forEach(q => all.push({ b, q })));
+  all.sort((x, y) => (y.q.at || "").localeCompare(x.q.at || ""));
+  if (!all.length) { $("list").innerHTML = `<div class="empty">No saved quotes yet. Open Edit on any book and use "Save a quote from this book."</div>`; return; }
+  $("list").innerHTML = `<div class="quotes">${all.map(({ b, q }) => `<figure class="quote"><blockquote>${esc(q.text)}</blockquote><figcaption>${esc(b.title)}${b.author ? `, ${esc(b.author.split(",")[0])}` : ""}${q.at ? ` · ${fmtDate(q.at)}` : ""}</figcaption></figure>`).join("")}</div>`;
 }
 
 /* ---------- stats ---------- */
@@ -468,49 +592,71 @@ function hbars(rows, opts = {}) {
 }
 
 function renderStats() {
-  const year = curYear();
-  const done = books.filter(b => b.status === "finished");
+  const cy = String(curYear());
+  const years = [...new Set(books.filter(b => b.status === "finished" && b.finishedAt).map(b => b.finishedAt.slice(0, 4)))];
+  if (!years.includes(cy)) years.push(cy);
+  years.sort().reverse();
+  const sel = statsYear && (statsYear === "all" || years.includes(statsYear)) ? statsYear : cy;
+  const all = sel === "all";
+  const done = books.filter(b => b.status === "finished" && (all || (b.finishedAt || "").startsWith(sel)));
   const reading = books.filter(b => b.status === "reading");
-  const listenedMin = done.reduce((s, b) => s + (b.runtimeMin || 0), 0) + reading.reduce((s, b) => s + (b.runtimeMin || 0) * clampPct(b.progress) / 100, 0);
+  const partial = (all || sel === cy) ? reading.reduce((s, b) => s + (b.runtimeMin || 0) * clampPct(b.progress) / 100, 0) : 0;
+  const listenedMin = done.reduce((s, b) => s + (b.runtimeMin || 0), 0) + partial;
   const rated = done.filter(b => b.rating);
   const avg = rated.length ? (rated.reduce((s, b) => s + b.rating, 0) / rated.length).toFixed(1) : "–";
   const timed = done.filter(b => b.runtimeMin);
   const avgLen = timed.length ? fmtHrs(timed.reduce((s, b) => s + b.runtimeMin, 0) / timed.length) : "–";
-
-  const dated = finishedThisYear();
-  const perMonth = Array(12).fill(0);
-  dated.forEach(b => { const m = Number(b.finishedAt.slice(5, 7)) - 1; if (m >= 0 && m < 12) perMonth[m]++; });
-  const mMax = Math.max(...perMonth, 1);
-  const nowM = new Date().getMonth();
   const undated = undatedFinished().length;
 
-  const ratingRows = [5, 4, 3, 2, 1].map(r => ({ label: "★".repeat(r), n: done.filter(b => b.rating === r).length, tip: `${r} star${r === 1 ? "" : "s"}: ${done.filter(b => b.rating === r).length} books` }));
+  let chart;
+  if (all) {
+    const ys = years.slice().sort();
+    const counts = ys.map(y => books.filter(b => b.status === "finished" && (b.finishedAt || "").startsWith(y)).length);
+    const mx = Math.max(...counts, 1);
+    const cols = `style="grid-template-columns:repeat(${ys.length}, minmax(0, 1fr))"`;
+    chart = `<section class="panel" aria-label="Books finished by year">
+      <div class="panel-head"><h3>Finished by year</h3><span class="hint">${undated ? `${undated} finished without a date` : ""}</span></div>
+      <div><div class="months" ${cols}>${ys.map((y, i) => `<div class="mcol tip" tabindex="0" data-tip="${y}: ${counts[i]} book${counts[i] === 1 ? "" : "s"}">${counts[i] ? `<span class="mval">${counts[i]}</span>` : ""}<div class="mbar" style="height:${counts[i] / mx * 100}%"></div></div>`).join("")}</div>
+      <div class="mlabels" ${cols}>${ys.map(y => `<span>'${y.slice(2)}</span>`).join("")}</div></div>
+    </section>`;
+  } else {
+    const perMonth = Array(12).fill(0);
+    done.forEach(b => { const m = Number(b.finishedAt.slice(5, 7)) - 1; if (m >= 0 && m < 12) perMonth[m]++; });
+    const mMax = Math.max(...perMonth, 1);
+    const nowM = sel === cy ? new Date().getMonth() : 11;
+    chart = `<section class="panel" aria-label="Books finished by month in ${sel}">
+      <div class="panel-head"><h3>Finished by month, ${sel}</h3><span class="hint">${sel === cy && undated ? `${undated} finished without a date` : ""}</span></div>
+      ${done.length ? `<div>
+        <div class="months">${perMonth.map((n, i) => `<div class="mcol tip${i > nowM ? " future" : ""}" tabindex="0" data-tip="${MONTHS[i]}: ${n} book${n === 1 ? "" : "s"}">${n ? `<span class="mval">${n}</span>` : ""}<div class="mbar" style="height:${n / mMax * 100}%"></div></div>`).join("")}</div>
+        <div class="mlabels">${MONTHS.map(m => `<span>${m[0]}</span>`).join("")}</div>
+      </div>` : `<p class="hint">No finish dates in ${sel} yet.</p>`}
+    </section>`;
+  }
+
+  const ratingRows = [5, 4, 3, 2, 1].map(r => { const n = done.filter(b => b.rating === r).length; return { label: "★".repeat(r), n, tip: `${r} star${r === 1 ? "" : "s"}: ${n} books` }; });
   const authorMap = new Map();
   done.forEach(b => { const a = (b.author || "").split(",")[0].trim(); if (a) authorMap.set(a, (authorMap.get(a) || 0) + 1); });
-  const authorRows = [...authorMap.entries()].filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8).map(([label, n]) => ({ label, n, tip: `${label}: ${n} finished` }));
+  const minA = all ? 2 : 1;
+  const authorRows = [...authorMap.entries()].filter(([, n]) => n >= minA).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8).map(([label, n]) => ({ label, n, tip: `${label}: ${n} finished` }));
   const genreRows = genreCounts(done).slice(0, 8).map(([label, n]) => ({ label, n, tip: `${label}: ${n} finished` }));
+  const best = done.filter(b => b.rating === 5).sort((a, b) => (b.finishedAt || "").localeCompare(a.finishedAt || "")).slice(0, 10);
+  const label = all ? "all time" : sel;
 
   $("list").innerHTML = `<div class="statsview">
+    <div class="yearpick" role="group" aria-label="Stats period">${years.map(y => `<button type="button" data-year="${y}" aria-pressed="${sel === y}">${y}</button>`).join("")}<button type="button" data-year="all" aria-pressed="${all}">All time</button></div>
     <div class="tiles">
-      <div class="tile"><b>${done.length}</b><span>books finished</span></div>
+      <div class="tile"><b>${done.length}</b><span>finished, ${label}</span></div>
       <div class="tile"><b>${Math.round(listenedMin / 60).toLocaleString()}</b><span>hours listened</span></div>
       <div class="tile"><b>${avg}</b><span>average rating</span></div>
       <div class="tile"><b>${avgLen}</b><span>average length</span></div>
     </div>
-
-    <section class="panel" aria-label="Books finished by month in ${year}">
-      <div class="panel-head"><h3>Finished by month, ${year}</h3><span class="hint">${dated.length} dated${undated ? ` · ${undated} without a date` : ""}</span></div>
-      ${dated.length ? `<div>
-        <div class="months">${perMonth.map((n, i) => `<div class="mcol tip${i > nowM ? " future" : ""}" tabindex="0" data-tip="${MONTHS[i]}: ${n} book${n === 1 ? "" : "s"}">${n ? `<span class="mval">${n}</span>` : ""}<div class="mbar" style="height:${n / mMax * 100}%"></div></div>`).join("")}</div>
-        <div class="mlabels">${MONTHS.map(m => `<span>${m[0]}</span>`).join("")}</div>
-      </div>` : `<p class="hint">No finish dates in ${year} yet. Audible doesn't export when you finished a book, so add dates in Edit on the Finished shelf and they'll show up here.</p>`}
-    </section>
-
+    ${chart}
+    <section class="panel"><h3>Five-star reads, ${label}</h3>${best.length ? `<ul class="toplist">${best.map(b => `<li><b>${esc(b.title)}</b><span>${b.finishedAt ? fmtDay(b.finishedAt) : esc((b.author || "").split(",")[0])}</span></li>`).join("")}</ul>` : `<p class="hint">No five-star reads ${all ? "yet" : `dated in ${sel}`}.</p>`}</section>
     <div class="two">
       <section class="panel"><h3>Your ratings</h3>${hbars(ratingRows, { cls: "star-row", empty: "Rate a finished book to see this." })}</section>
-      <section class="panel"><h3>Top genres</h3>${hbars(genreRows, { empty: "Run an Audible import to pull in genres." })}</section>
+      <section class="panel"><h3>Top genres</h3>${hbars(genreRows, { empty: "No genres for these books yet." })}</section>
     </div>
-    <section class="panel"><h3>Authors you keep coming back to</h3>${hbars(authorRows, { empty: "No author with more than one finished book yet." })}</section>
+    <section class="panel"><h3>${all ? "Authors you keep coming back to" : `Most-read authors, ${sel}`}</h3>${hbars(authorRows, { empty: "Nothing to show for this period yet." })}</section>
   </div>`;
 }
 
@@ -518,7 +664,11 @@ function render() {
   renderHeader();
   renderTabs();
   renderTools();
-  if (tab === "stats") renderStats(); else renderList();
+  if (visitor && tab === "quotes") tab = "reading";
+  if (tab === "stats") renderStats();
+  else if (tab === "series") renderSeries();
+  else if (tab === "quotes") renderQuotes();
+  else renderList();
 }
 
 /* ---------- storage ---------- */
@@ -602,6 +752,9 @@ function parseExport(text) {
       pct, finished: fin, started: !fin && pct > 0,
       runtimeMin: parseInt(r.runtime_length_min, 10) || 0,
       genres: parseGenres(r.genres),
+      series: r.series_title && r.series_title !== "-" ? String(r.series_title).trim() : "",
+      seriesSeq: r.series_sequence && r.series_sequence !== "-" ? String(r.series_sequence).trim() : "",
+      coverUrl: r.cover_url && r.cover_url !== "-" ? String(r.cover_url).trim() : "",
       added: String(r.purchase_date || r.date_added || ""),
     };
   });
@@ -616,7 +769,7 @@ function buildPlan(items) {
     const match = (it.asin && books.find(b => b.asin === it.asin)) || books.find(b => !claimed.has(b.id) && norm(b.title) === norm(it.title));
     if (match) {
       claimed.add(match.id);
-      const needsDetails = !match.asin || (it.genres.length && !sameList(match.genres, it.genres)) || (it.runtimeMin && !match.runtimeMin);
+      const needsDetails = !match.asin || (it.genres.length && !sameList(match.genres, it.genres)) || (it.runtimeMin && !match.runtimeMin) || (it.series && (match.series !== it.series || String(match.seriesSeq || "") !== it.seriesSeq)) || (it.coverUrl && match.coverUrl !== it.coverUrl);
       if (it.finished && match.status !== "finished") p.finish.push({ book: match, it });
       else if (it.started && (match.status === "finished" || match.status === "dnf")) { p.keptFinished.push({ book: match, it }); if (needsDetails) p.details.push({ book: match, it }); }
       else if (it.started && (match.status !== "reading" || clampPct(match.progress) !== clampPct(it.pct))) p.progress.push({ book: match, it });
@@ -649,7 +802,7 @@ function renderPlan() {
   if (p.progress.length) parts.push(group(p.progress.length, "in progress, will move to Reading with your Audible percent", listItems(p.progress, x => `<li>${esc(x.book.title)} <span>${clampPct(x.book.progress)}% → ${clampPct(x.it.pct)}%</span></li>`)));
   if (p.finish.length) parts.push(group(p.finish.length, "finished on Audible, will move to Finished", listItems(p.finish, x => `<li>${esc(x.book.title)}</li>`)));
   if (p.newReading.length) parts.push(group(p.newReading.length, "in progress and not on your shelf, will be added to Reading", listItems(p.newReading, it => `<li>${esc(it.title)} <span>${clampPct(it.pct)}%</span></li>`)));
-  if (p.details.length) parts.push(group(p.details.length, "will get Audible details (genres and length)", listItems(p.details, x => `<li>${esc(x.book.title)}${x.it.genres[0] ? ` <span>${esc(x.it.genres[0])}</span>` : ""}</li>`)));
+  if (p.details.length) parts.push(group(p.details.length, "will get Audible details (genres, series, length, cover)", listItems(p.details, x => `<li>${esc(x.book.title)}${x.it.genres[0] ? ` <span>${esc(x.it.genres[0])}</span>` : ""}</li>`)));
   if (p.newFinished.length) parts.push(`<div class="grp${p.addFinished ? "" : " off"}"><details><summary><span class="count">${p.newFinished.length}</span><span>finished and not on your shelf</span></summary>${listItems(p.newFinished, it => `<li>${esc(it.title)}</li>`)}</details><label><input type="checkbox" id="optFinished" ${p.addFinished ? "checked" : ""}> Add these to Finished</label></div>`);
   if (p.newWant.length) parts.push(`<div class="grp${p.addWant ? "" : " off"}"><details><summary><span class="count">${p.newWant.length}</span><span>owned but not started</span></summary>${listItems(p.newWant, it => `<li>${esc(it.title)}</li>`)}</details><label><input type="checkbox" id="optWant" ${p.addWant ? "checked" : ""}> Add these to Want to read</label></div>`);
   if (p.keptFinished.length) parts.push(group(p.keptFinished.length, "marked Finished or Did not finish here but partway on Audible, left as is", listItems(p.keptFinished, x => `<li>${esc(x.book.title)} <span>${clampPct(x.it.pct)}%</span></li>`), "", true));
@@ -693,7 +846,8 @@ $("impApply").addEventListener("click", async () => {
   const p = plan;
   const now = new Date().toISOString();
   const today = todayStr();
-  const audio = it => ({ asin: it.asin, source: "audible", runtimeMin: it.runtimeMin, genres: it.genres });
+  const audio = it => ({ asin: it.asin, source: "audible", runtimeMin: it.runtimeMin, genres: it.genres,
+    ...(it.series ? { series: it.series, seriesSeq: it.seriesSeq } : {}), ...(it.coverUrl ? { coverUrl: it.coverUrl } : {}) });
   const base = it => ({ title: it.title, author: it.author, rating: 0, notes: "", favorite: false, ...audio(it) });
   const ops = [];
   p.progress.forEach(({ book, it }) => ops.push(() => save(book.id, { ...audio(it), status: "reading", progress: clampPct(it.pct), startedAt: book.startedAt || today, lastPlayedAt: now }, true)));
@@ -749,6 +903,8 @@ $("onlyUndated").addEventListener("change", e => { onlyUndated = e.target.checke
 $("ownedOnly").addEventListener("change", e => { ownedOnly = e.target.checked; openId = null; renderTabs(); renderList(); });
 
 $("list").addEventListener("click", e => {
+  const yb = e.target.closest("[data-year]");
+  if (yb) { statsYear = yb.dataset.year; renderStats(); return; }
   if (visitor) return;
   const el = e.target.closest("button"); if (!el) return;
   const d = el.dataset;
@@ -756,6 +912,15 @@ $("list").addEventListener("click", e => {
   else if (d.open) { openId = d.open; confirmId = null; render(); }
   else if (d.close) { openId = null; confirmId = null; render(); }
   else if (d.fav) { const b = books.find(x => x.id === d.fav); save(d.fav, { favorite: !b.favorite }).catch(() => {}); }
+  else if (d.qadd) {
+    const b = books.find(x => x.id === d.qadd); const box = $("qt-" + d.qadd);
+    const text = box ? box.value.trim() : "";
+    if (b && text) save(d.qadd, { quotes: [...(b.quotes || []), { text, at: new Date().toISOString() }] }).catch(() => {});
+  }
+  else if (d.qdel) {
+    const b = books.find(x => x.id === d.qdel); const i = +d.qi;
+    if (b) save(d.qdel, { quotes: (b.quotes || []).filter((_, k) => k !== i) }).catch(() => {});
+  }
   else if (d.own) { const b = books.find(x => x.id === d.own); save(d.own, { owned: !b.owned }).catch(() => {}); }
   else if (d.askdel) { confirmId = d.askdel; render(); }
   else if (d.nodel) { confirmId = null; render(); }
