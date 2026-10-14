@@ -193,6 +193,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .qedit .q-row { display: flex; gap: 10px; align-items: flex-start; }
 .qedit .q-row blockquote { margin: 0; flex: 1; min-width: 0; padding-left: 10px; border-left: 2px solid var(--brass); font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .qedit label { font-size: 13px; color: var(--muted); }
+.qedit select { max-width: 100%; }
+.qedit .row a.link { font-size: 13px; }
 .book-wrap { display: flex; gap: 14px; border-bottom: 1px solid var(--line); padding-left: 4px; }
 .book-wrap .book { flex: 1; min-width: 0; border-bottom: 0; padding-left: 0; }
 .cover { flex: 0 0 56px; width: 56px; height: 84px; margin-top: 16px; border-radius: 3px; background: var(--accent-soft); overflow: hidden; }
@@ -291,6 +293,72 @@ let SHOW_COVERS = false;
 const EXTRA_TABS = ["series", "quotes", "stats"];
 let visitor = false;
 let undo = null;
+
+/* Memorable lines from public-domain classics, copied word for word from the
+   Project Gutenberg texts (checked against the original editions). */
+const QUOTE_BANK = [
+  { match: b => /picture of dorian gray/i.test(b.title), edition: "Oscar Wilde, 1891 text", groups: [{ label: "The Picture of Dorian Gray", quotes: [
+    "The only way to get rid of a temptation is to yield to it.",
+    "…there is only one thing in the world worse than being talked about, and that is not being talked about.",
+    "Behind every exquisite thing that existed, there was something tragic.",
+    "…every portrait that is painted with feeling is a portrait of the artist, not of the sitter.",
+    "Experience was of no ethical value. It was merely the name men gave to their mistakes.",
+    "Nothing can cure the soul but the senses, just as nothing can cure the senses but the soul.",
+    "To define is to limit.",
+    "The books that the world calls immoral are books that show the world its own shame.",
+  ] }] },
+  { match: b => /^oliver twist/i.test(b.title), edition: "Charles Dickens, original text", groups: [{ label: "Oliver Twist", quotes: [
+    "Please, sir, I want some more.",
+    "If the law supposes that, … the law is a ass—a idiot.",
+    "Some people are nobody’s enemies but their own, yer know.",
+    "When a man’s his own enemy, it’s only because he’s too much his own friend…",
+  ] }] },
+  { match: b => /study in scarlet/i.test(b.title), edition: "Arthur Conan Doyle, original texts", groups: [
+    { label: "A Study in Scarlet", quotes: [
+      "It is a capital mistake to theorize before you have all the evidence. It biases the judgment.",
+      "There’s the scarlet thread of murder running through the colourless skein of life, and our duty is to unravel it, and isolate it, and expose every inch of it.",
+      "I consider that a man’s brain originally is like a little empty attic, and you have to stock it with such furniture as you choose.",
+      "Where there is no imagination there is no horror.",
+      "There is nothing new under the sun. It has all been done before.",
+      "They say that genius is an infinite capacity for taking pains.",
+    ] },
+    { label: "The Sign of Four", quotes: [
+      "How often have I said to you that when you have eliminated the impossible whatever remains, however improbable, must be the truth?",
+      "My mind rebels at stagnation. Give me problems, give me work, give me the most abstruse cryptogram or the most intricate analysis, and I am in my own proper atmosphere.",
+      "I never guess. It is a shocking habit,—destructive to the logical faculty.",
+      "The emotional qualities are antagonistic to clear reasoning.",
+      "Love is an emotional thing, and whatever is emotional is opposed to that true cold reason which I place above all things.",
+      "…the chief proof of man’s real greatness lies in his perception of his own smallness.",
+    ] },
+  ] },
+  { match: b => /odyssey/i.test(b.title) || /^the iliad/i.test(b.title), edition: "Samuel Butler translations (1898, 1900)", groups: [
+    { label: "The Odyssey", quotes: [
+      "Tell me, O Muse, of that ingenious hero who travelled far and wide after he had sacked the famous town of Troy.",
+      "There is a time for making speeches, and a time for going to bed.",
+      "My name is Noman; this is what my father and mother and my friends have always called me.",
+      "There is nothing worse than being always on the tramp.",
+    ] },
+    { label: "The Iliad", quotes: [
+      "Sing, O goddess, the anger of Achilles son of Peleus, that brought countless ills upon the Achaeans.",
+      "All things pall after a while—sleep, love, sweet song, and stately dance—still these are things of which a man would surely have his fill rather than of battle…",
+    ] },
+  ] },
+  { match: b => /gibran/i.test(b.author || ""), edition: "Kahlil Gibran, The Prophet (1923)", groups: [{ label: "The Prophet", quotes: [
+    "Your children are not your children. They are the sons and daughters of Life’s longing for itself.",
+    "Work is love made visible.",
+    "The deeper that sorrow carves into your being, the more joy you can contain.",
+    "Let there be spaces in your togetherness, And let the winds of the heavens dance between you.",
+    "You give but little when you give of your possessions. It is when you give of yourself that you truly give.",
+  ] }] },
+  { match: b => /^meditations/i.test(b.title) && /aurelius/i.test(b.author || ""), edition: "George Long translation (1862); your edition may word these differently", groups: [{ label: "Meditations", quotes: [
+    "Begin the morning by saying to thyself, I shall meet with the busybody, the ungrateful, arrogant, deceitful, envious, unsocial.",
+    "The universe is transformation: life is opinion.",
+    "The best way of avenging thyself is not to become like the wrong-doer.",
+  ] }] },
+];
+const quoteBank = (b) => QUOTE_BANK.find(e => e.match(b));
+const shorten = (t, n = 80) => t.length > n ? t.slice(0, n - 1).replace(/\s+\S*$/, "") + "…" : t;
+
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 let books = [];
 let tab = "reading";
@@ -502,8 +570,13 @@ function renderList() {
         <div class="qedit">
           ${(b.quotes || []).map((q, i) => `<div class="q-row"><blockquote>${esc(q.text)}</blockquote><button class="link" type="button" data-qdel="${b.id}" data-qi="${i}">Remove</button></div>`).join("")}
           <label for="qt-${b.id}">Save a quote from this book</label>
+          ${quoteBank(b) ? `<select id="qp-${b.id}" data-qpick="${b.id}" aria-label="Pick a memorable line">
+            <option value="">Pick a memorable line (${esc(quoteBank(b).edition)})</option>
+            ${quoteBank(b).groups.map((g, gi) => `<optgroup label="${esc(g.label)}">${g.quotes.map((q, qi) => `<option value="${gi}-${qi}">${esc(shorten(q))}</option>`).join("")}</optgroup>`).join("")}
+          </select>` : ""}
           <textarea id="qt-${b.id}" placeholder="Paste or type a quote"></textarea>
-          <div class="row"><button class="ghost" type="button" data-qadd="${b.id}">Save quote</button></div>
+          <div class="row"><button class="ghost" type="button" data-qadd="${b.id}">Save quote</button>
+            <a class="link" href="https://www.goodreads.com/quotes/search?q=${encodeURIComponent(`${b.title.split(/[:(]/)[0].trim()} ${(b.author || "").split(",")[0].trim()}`)}" target="_blank" rel="noopener noreferrer">Find quotes on Goodreads ↗</a></div>
         </div>
         <div class="row">
           <button class="ghost" data-close="${b.id}">Done</button>
@@ -966,6 +1039,12 @@ $("list").addEventListener("change", e => {
   } else if (el.dataset.findate) {
     const v = /^\d{4}-\d{2}-\d{2}$/.test(el.value) ? el.value : "";
     save(el.dataset.findate, { finishedAt: v }, true).then(() => { renderHeader(); renderTabs(); }).catch(() => {});
+  } else if (el.dataset.qpick) {
+    const b = books.find(x => x.id === el.dataset.qpick); const bank = b && quoteBank(b);
+    const [gi, qi] = el.value.split("-").map(Number);
+    const q = bank && bank.groups[gi] && bank.groups[gi].quotes[qi];
+    const box = $("qt-" + el.dataset.qpick);
+    if (q && box) { box.value = bank.groups.length > 1 ? `${q} (${bank.groups[gi].label})` : q; box.focus(); }
   } else if (el.dataset.notes) {
     save(el.dataset.notes, { notes: el.value.trim() }).catch(() => {});
   }
