@@ -533,7 +533,7 @@ function renderList() {
     const gen = (b.genres || [])[0];
     const stopped = clampPct(b.progress);
     const when = b.status === "finished" ? (b.finishedAt ? `Finished ${fmtDay(b.finishedAt)}` : "Finish date not set")
-      : b.status === "dnf" ? [stopped ? `Stopped at ${stopped}%` : "", b.dnfAt ? `Set aside ${fmtDay(b.dnfAt)}` : ""].filter(Boolean).join(" · ")
+      : b.status === "dnf" ? [stopped ? `Stopped at ${stopped}%` : "", b.dnfAt ? `Set aside ${fmtDay(b.dnfAt)}` : "", visitor ? "" : "Locked from Audible sync"].filter(Boolean).join(" · ")
       : "";
     const open = SHOW_COVERS ? `<article class="book-wrap">${coverHtml(b)}<div class="book">` : `<article class="book">`;
     const close = SHOW_COVERS ? `</div></article>` : `</article>`;
@@ -843,7 +843,8 @@ function buildPlan(items) {
     if (match) {
       claimed.add(match.id);
       const needsDetails = !match.asin || (it.genres.length && !sameList(match.genres, it.genres)) || (it.runtimeMin && !match.runtimeMin) || (it.series && (match.series !== it.series || String(match.seriesSeq || "") !== it.seriesSeq)) || (it.coverUrl && match.coverUrl !== it.coverUrl);
-      if (it.finished && match.status !== "finished") p.finish.push({ book: match, it });
+      if (match.status === "dnf") { if (it.started || it.finished) p.keptFinished.push({ book: match, it }); if (needsDetails) p.details.push({ book: match, it }); }
+      else if (it.finished && match.status !== "finished") p.finish.push({ book: match, it });
       else if (it.started && (match.status === "finished" || match.status === "dnf")) { p.keptFinished.push({ book: match, it }); if (needsDetails) p.details.push({ book: match, it }); }
       else if (it.started && (match.status !== "reading" || clampPct(match.progress) !== clampPct(it.pct))) p.progress.push({ book: match, it });
       else if (needsDetails) p.details.push({ book: match, it });
@@ -878,7 +879,7 @@ function renderPlan() {
   if (p.details.length) parts.push(group(p.details.length, "will get Audible details (genres, series, length, cover)", listItems(p.details, x => `<li>${esc(x.book.title)}${x.it.genres[0] ? ` <span>${esc(x.it.genres[0])}</span>` : ""}</li>`)));
   if (p.newFinished.length) parts.push(`<div class="grp${p.addFinished ? "" : " off"}"><details><summary><span class="count">${p.newFinished.length}</span><span>finished and not on your shelf</span></summary>${listItems(p.newFinished, it => `<li>${esc(it.title)}</li>`)}</details><label><input type="checkbox" id="optFinished" ${p.addFinished ? "checked" : ""}> Add these to Finished</label></div>`);
   if (p.newWant.length) parts.push(`<div class="grp${p.addWant ? "" : " off"}"><details><summary><span class="count">${p.newWant.length}</span><span>owned but not started</span></summary>${listItems(p.newWant, it => `<li>${esc(it.title)}</li>`)}</details><label><input type="checkbox" id="optWant" ${p.addWant ? "checked" : ""}> Add these to Want to read</label></div>`);
-  if (p.keptFinished.length) parts.push(group(p.keptFinished.length, "marked Finished or Did not finish here but partway on Audible, left as is", listItems(p.keptFinished, x => `<li>${esc(x.book.title)} <span>${clampPct(x.it.pct)}%</span></li>`), "", true));
+  if (p.keptFinished.length) parts.push(group(p.keptFinished.length, "on your Finished or Did not finish shelf, left as is", listItems(p.keptFinished, x => `<li>${esc(x.book.title)} <span>${clampPct(x.it.pct)}%</span></li>`), "", true));
 
   $("impSub").textContent = `${p.fileName} · ${p.total} titles in your Audible library`;
   $("impBody").innerHTML = parts.length
