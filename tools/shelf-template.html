@@ -619,31 +619,60 @@ function fillCovers() {
 /* ---------- series ---------- */
 const SEQ = (v) => { const n = parseFloat(String(v || "").replace(/[^0-9.]/g, "")); return isNaN(n) ? 999 : n; };
 const STATUS_LABEL = { reading: "Reading", want: "Want to read", finished: "Read", dnf: "Did not finish", library: "Owned" };
+/* Books published per series (plus any with an official release date), checked October 14, 2026.
+   Main numbered entries only; companion collections and box sets are not counted. */
+const SERIES_TOTALS = {
+  "86--EIGHTY-SIX": 14, "A Darker Shade of Magic": 3, "A Practical Guide to Evil": 7, "A Song of Ice and Fire": 5,
+  "An FBI Thriller": 27, "Bobiverse": 6, "Children of Time": 4, "Dune": 6, "Dungeon Crawler Carl": 8,
+  "Fire Punch": 8, "Flesh & False Gods": 3, "Foundation": 7, "Giver Quartet": 4, "He Who Fights with Monsters": 13,
+  "Hierarchy": 2, "Imperial Radch": 3, "Invincible Compendium": 3, "Jack Reacher": 31, "Kingkiller Chronicle": 2,
+  "Lore Olympus": 11, "Mistborn": 7, "Mother of Learning": 4, "My Hero Academia": 42, "Percy Jackson and the Olympians": 7,
+  "Red Rising": 6, "Red Rising: Sons of Ares": 3, "Scholomance": 3, "Shadowdance": 6, "Sorcery Ascendant": 3,
+  "Spy x Family": 15, "Sympathizer": 2, "The Broken Earth": 3, "The Dark Tower": 8, "The Empyrean": 3,
+  "The Manhattan Projects": 6, "The Perfect Run": 3, "The Poppy War": 3, "The Primal Hunter": 16,
+  "The Remembrance of Earth's Past": 3, "The Sean Duffy Series": 8, "The Stormlight Archive": 5, "The Wheel of Time": 14,
+  "The Witcher": 9, "Transmetropolitan": 5,
+};
+const STATUS_RANK = { finished: 0, reading: 1, dnf: 2, want: 3, library: 4 };
+const partBase = (t) => String(t || "").replace(/\s*[\(\[][^)\]]*(part\s*\d|\d+\s*of\s*\d|dramatized)[^)\]]*[\)\]]/ig, "").replace(/\s{2,}/g, " ").trim();
 function seriesGroups() {
   const m = new Map();
   books.forEach(b => { if (b.series) { if (!m.has(b.series)) m.set(b.series, []); m.get(b.series).push(b); } });
   return [...m.entries()].map(([name, list]) => {
-    list.sort((a, b) => SEQ(a.seriesSeq) - SEQ(b.seriesSeq) || sortKey(a.title).localeCompare(sortKey(b.title)));
-    const read = list.filter(b => b.status === "finished").length;
-    const next = list.find(b => b.status === "reading") || list.find(b => b.status !== "finished" && b.status !== "dnf");
+    // Merge multi-part editions (dramatized adaptations split into parts) into one entry per book number.
+    const bySeq = new Map();
+    list.forEach(b => { const k = b.seriesSeq ? "s:" + b.seriesSeq : "id:" + b.id; if (!bySeq.has(k)) bySeq.set(k, []); bySeq.get(k).push(b); });
+    const entries = [...bySeq.values()].map(parts => {
+      const allDone = parts.every(b => b.status === "finished");
+      const status = allDone ? "finished" : parts.some(b => b.status === "reading") ? "reading"
+        : parts.filter(b => b.status !== "finished").sort((x, y) => (STATUS_RANK[x.status] ?? 9) - (STATUS_RANK[y.status] ?? 9))[0].status;
+      const titles = [...new Set(parts.map(b => partBase(b.title)))];
+      return { title: titles.sort((x, y) => x.length - y.length)[0] || parts[0].title, seriesSeq: parts[0].seriesSeq || "", status, parts: parts.length, books: parts };
+    }).sort((a, b) => SEQ(a.seriesSeq) - SEQ(b.seriesSeq) || sortKey(a.title).localeCompare(sortKey(b.title)));
+    const main = entries.filter(e => !/\./.test(e.seriesSeq));
+    const read = main.filter(e => e.status === "finished").length;
+    const total = Math.max(SERIES_TOTALS[name] || 0, main.length);
+    const next = entries.find(e => e.status === "reading") || entries.find(e => e.status !== "finished" && e.status !== "dnf");
     const active = list.reduce((mx, b) => { const t = b.lastPlayedAt || b.finishedAt || ""; return t > mx ? t : mx; }, "");
-    return { name, list, read, next, active };
+    return { name, entries, read, total, known: !!SERIES_TOTALS[name], next, active };
   }).sort((a, b) => ((b.next && b.next.status === "reading") ? 1 : 0) - ((a.next && a.next.status === "reading") ? 1 : 0) || b.active.localeCompare(a.active) || a.name.localeCompare(b.name));
 }
 function renderSeries() {
   const groups = seriesGroups();
   if (!groups.length) { $("list").innerHTML = `<div class="empty">No series yet. Run an Audible import to pull in series info.</div>`; return; }
   $("list").innerHTML = `<div class="series">${groups.map(g => {
-    const pct = Math.round(g.read / g.list.length * 100);
+    const pct = Math.round(g.read / g.total * 100);
+    const missing = g.total - g.entries.filter(e => !/\./.test(e.seriesSeq)).length;
     const next = g.next
       ? `<div class="ser-next">${g.next.status === "reading" ? "Reading now" : "Up next"}: <b>${esc(g.next.title)}</b>${g.next.seriesSeq ? ` · #${esc(g.next.seriesSeq)}` : ""}</div>`
-      : `<div class="ser-next">All caught up on what's on your shelf</div>`;
+      : g.read >= g.total ? `<div class="ser-next">Series complete</div>` : `<div class="ser-next">Caught up on what's on your shelf</div>`;
     return `<details class="ser"><summary>
-        <div class="ser-head"><span class="ser-name">${esc(g.name)}</span><span class="pct">${g.read} of ${g.list.length} read</span></div>
+        <div class="ser-head"><span class="ser-name">${esc(g.name)}</span><span class="pct">${g.read} of ${g.total} read</span></div>
         <div class="bar" aria-hidden="true"><span style="width:${pct}%"></span></div>
         ${next}
       </summary>
-      <ol class="ser-list">${g.list.map(b => `<li class="st-${b.status}"><span class="seq">${b.seriesSeq ? "#" + esc(b.seriesSeq) : ""}</span><span>${esc(b.title)}</span><span class="ser-st">${STATUS_LABEL[b.status] || ""}</span></li>`).join("")}</ol>
+      <ol class="ser-list">${g.entries.map(e => `<li class="st-${e.status}"><span class="seq">${e.seriesSeq ? "#" + esc(e.seriesSeq) : ""}</span><span>${esc(e.title)}${e.parts > 1 ? ` <span class="hint">· ${e.parts} parts</span>` : ""}</span><span class="ser-st">${STATUS_LABEL[e.status] || ""}</span></li>`).join("")}
+        ${missing > 0 ? `<li class="st-none"><span class="seq"></span><span class="hint">${missing} more in the series not on your shelf</span><span></span></li>` : ""}</ol>
     </details>`;
   }).join("")}</div>`;
 }
@@ -842,7 +871,7 @@ function buildPlan(items) {
     const match = (it.asin && books.find(b => b.asin === it.asin)) || books.find(b => !claimed.has(b.id) && norm(b.title) === norm(it.title));
     if (match) {
       claimed.add(match.id);
-      const needsDetails = !match.asin || (it.genres.length && !sameList(match.genres, it.genres)) || (it.runtimeMin && !match.runtimeMin) || (it.series && (match.series !== it.series || String(match.seriesSeq || "") !== it.seriesSeq)) || (it.coverUrl && match.coverUrl !== it.coverUrl);
+      const needsDetails = !match.asin || (it.genres.length && !sameList(match.genres, it.genres)) || (it.runtimeMin && !match.runtimeMin) || (it.series && !match.series) || (it.coverUrl && match.coverUrl !== it.coverUrl);
       if (match.status === "dnf") { if (it.started || it.finished) p.keptFinished.push({ book: match, it }); if (needsDetails) p.details.push({ book: match, it }); }
       else if (it.finished && match.status !== "finished") p.finish.push({ book: match, it });
       else if (it.started && (match.status === "finished" || match.status === "dnf")) { p.keptFinished.push({ book: match, it }); if (needsDetails) p.details.push({ book: match, it }); }
@@ -920,13 +949,13 @@ $("impApply").addEventListener("click", async () => {
   const p = plan;
   const now = new Date().toISOString();
   const today = todayStr();
-  const audio = it => ({ asin: it.asin, source: "audible", runtimeMin: it.runtimeMin, genres: it.genres,
-    ...(it.series ? { series: it.series, seriesSeq: it.seriesSeq } : {}), ...(it.coverUrl ? { coverUrl: it.coverUrl } : {}) });
+  const audio = (it, book) => ({ asin: it.asin, source: "audible", runtimeMin: it.runtimeMin, genres: it.genres,
+    ...(it.series && !(book && book.series) ? { series: it.series, seriesSeq: it.seriesSeq } : {}), ...(it.coverUrl ? { coverUrl: it.coverUrl } : {}) });
   const base = it => ({ title: it.title, author: it.author, rating: 0, notes: "", favorite: false, ...audio(it) });
   const ops = [];
-  p.progress.forEach(({ book, it }) => ops.push(() => save(book.id, { ...audio(it), status: "reading", progress: clampPct(it.pct), startedAt: book.startedAt || today, lastPlayedAt: now }, true)));
-  p.finish.forEach(({ book, it }) => ops.push(() => save(book.id, { ...audio(it), status: "finished", progress: 100, finishedAt: book.finishedAt || today }, true)));
-  p.details.forEach(({ book, it }) => ops.push(() => saveDetails(book.id, audio(it))));
+  p.progress.forEach(({ book, it }) => ops.push(() => save(book.id, { ...audio(it, book), status: "reading", progress: clampPct(it.pct), startedAt: book.startedAt || today, lastPlayedAt: now }, true)));
+  p.finish.forEach(({ book, it }) => ops.push(() => save(book.id, { ...audio(it, book), status: "finished", progress: 100, finishedAt: book.finishedAt || today }, true)));
+  p.details.forEach(({ book, it }) => ops.push(() => saveDetails(book.id, audio(it, book))));
   p.newReading.forEach(it => ops.push(() => addBook({ ...base(it), status: "reading", progress: clampPct(it.pct), startedAt: today, updatedAt: now, lastPlayedAt: now }, true)));
   if (p.addFinished) p.newFinished.forEach(it => ops.push(() => addBook({ ...base(it), status: "finished", progress: 100, finishedAt: "", updatedAt: it.added || now }, true)));
   if (p.addWant) p.newWant.forEach(it => ops.push(() => addBook({ ...base(it), status: "want", progress: 0, updatedAt: it.added || now }, true)));
