@@ -9,7 +9,7 @@ import datetime, glob, json, os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 KEEP = ["title", "author", "status", "progress", "rating", "finishedAt", "dnfAt", "startedAt",
-        "genres", "runtimeMin", "owned", "source", "updatedAt", "favorite"]
+        "genres", "runtimeMin", "owned", "source", "updatedAt", "favorite", "lastPlayedAt"]
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 def main():
