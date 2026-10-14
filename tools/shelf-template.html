@@ -218,6 +218,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     <select id="genre" aria-label="Filter by genre"><option value="">All genres</option></select>
     <select id="sort" aria-label="Sort">
       <option value="recent">Recently updated</option>
+      <option value="played">Last listened</option>
       <option value="title">Title A to Z</option>
       <option value="author">Author A to Z</option>
       <option value="rating">Highest rated</option>
@@ -257,10 +258,18 @@ let goalEditing = false;
 let query = "";
 let genre = "";
 let sortBy = "recent";
+let sorts = { reading: "played" };
+const playedAt = (b) => b.lastPlayedAt || b.startedAt || b.updatedAt || "";
+const fmtAgo = (iso) => {
+  const d = new Date(iso); if (isNaN(d)) return "";
+  const days = Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 864e5);
+  return days <= 0 ? "today" : days === 1 ? "yesterday" : days < 7 ? `${days} days ago` : `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+};
 let onlyUndated = false;
 
 try { const t = localStorage.getItem("shelf-tab"); if (t === "stats" || SHELVES.some(s => s.key === t)) tab = t; } catch (e) {}
-try { const s = localStorage.getItem("shelf-sort"); if (s) sortBy = s; } catch (e) {}
+try { const s = JSON.parse(localStorage.getItem("shelf-sorts") || "null"); if (s && typeof s === "object") sorts = { ...sorts, ...s }; } catch (e) {}
+sortBy = sorts[tab] || "recent";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -292,6 +301,7 @@ function sorted(list) {
     progress: (a, b) => (b.progress || 0) - (a.progress || 0),
     finished: (a, b) => (b.finishedAt || "").localeCompare(a.finishedAt || ""),
     length: (a, b) => (b.runtimeMin || 0) - (a.runtimeMin || 0),
+    played: (a, b) => playedAt(b).localeCompare(playedAt(a)),
   }[sortBy] || ((a, b) => 0);
   return list.slice().sort(by);
 }
@@ -382,6 +392,7 @@ function renderTools() {
   if (html !== lastGenreOpts) { $("genre").innerHTML = html; lastGenreOpts = html; }
   $("genre").value = genre;
   $("genre").hidden = !gc.length;
+  sortBy = sorts[tab] || "recent";
   $("sort").value = sortBy;
   $("onlyWrap").hidden = tab !== "finished";
 }
@@ -390,7 +401,9 @@ function renderTools() {
 function progressRow(b) {
   const p = clampPct(b.progress);
   const left = b.runtimeMin ? ` · ${fmtHrs(b.runtimeMin * (100 - p) / 100)} left` : "";
-  return `<div class="prog"><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}" aria-label="Progress"><span style="width:${p}%"></span></div><span class="pct">${p}%${left}</span></div>`;
+  const ago = b.lastPlayedAt ? fmtAgo(b.lastPlayedAt) : "";
+  const last = ago ? ` · ${b.source === "audible" ? "listened" : "read"} ${ago}` : "";
+  return `<div class="prog"><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}" aria-label="Progress"><span style="width:${p}%"></span></div><span class="pct">${p}%${left}${last}</span></div>`;
 }
 
 function renderList() {
@@ -683,10 +696,10 @@ $("impApply").addEventListener("click", async () => {
   const audio = it => ({ asin: it.asin, source: "audible", runtimeMin: it.runtimeMin, genres: it.genres });
   const base = it => ({ title: it.title, author: it.author, rating: 0, notes: "", favorite: false, ...audio(it) });
   const ops = [];
-  p.progress.forEach(({ book, it }) => ops.push(() => save(book.id, { ...audio(it), status: "reading", progress: clampPct(it.pct), startedAt: book.startedAt || today }, true)));
+  p.progress.forEach(({ book, it }) => ops.push(() => save(book.id, { ...audio(it), status: "reading", progress: clampPct(it.pct), startedAt: book.startedAt || today, lastPlayedAt: now }, true)));
   p.finish.forEach(({ book, it }) => ops.push(() => save(book.id, { ...audio(it), status: "finished", progress: 100, finishedAt: book.finishedAt || today }, true)));
   p.details.forEach(({ book, it }) => ops.push(() => saveDetails(book.id, audio(it))));
-  p.newReading.forEach(it => ops.push(() => addBook({ ...base(it), status: "reading", progress: clampPct(it.pct), startedAt: today, updatedAt: now }, true)));
+  p.newReading.forEach(it => ops.push(() => addBook({ ...base(it), status: "reading", progress: clampPct(it.pct), startedAt: today, updatedAt: now, lastPlayedAt: now }, true)));
   if (p.addFinished) p.newFinished.forEach(it => ops.push(() => addBook({ ...base(it), status: "finished", progress: 100, finishedAt: "", updatedAt: it.added || now }, true)));
   if (p.addWant) p.newWant.forEach(it => ops.push(() => addBook({ ...base(it), status: "want", progress: 0, updatedAt: it.added || now }, true)));
 
@@ -731,7 +744,7 @@ $("tabs").addEventListener("click", e => {
 
 $("q").addEventListener("input", e => { query = e.target.value.trim(); openId = null; renderTabs(); renderList(); });
 $("genre").addEventListener("change", e => { genre = e.target.value; openId = null; renderTabs(); renderList(); });
-$("sort").addEventListener("change", e => { sortBy = e.target.value; try { localStorage.setItem("shelf-sort", sortBy); } catch (err) {} renderList(); });
+$("sort").addEventListener("change", e => { sortBy = e.target.value; sorts[tab] = sortBy; try { localStorage.setItem("shelf-sorts", JSON.stringify(sorts)); } catch (err) {} renderList(); });
 $("onlyUndated").addEventListener("change", e => { onlyUndated = e.target.checked; renderList(); });
 $("ownedOnly").addEventListener("change", e => { ownedOnly = e.target.checked; openId = null; renderTabs(); renderList(); });
 
@@ -775,7 +788,7 @@ $("list").addEventListener("change", e => {
     if (el.value === "dnf") patch.dnfAt = b.dnfAt || today;
     openId = null; save(el.dataset.status, patch).catch(() => {});
   } else if (el.dataset.progress) {
-    save(el.dataset.progress, { progress: clampPct(el.value) }).catch(() => {});
+    save(el.dataset.progress, { progress: clampPct(el.value), lastPlayedAt: new Date().toISOString() }).catch(() => {});
   } else if (el.dataset.findate) {
     const v = /^\d{4}-\d{2}-\d{2}$/.test(el.value) ? el.value : "";
     save(el.dataset.findate, { finishedAt: v }, true).then(() => { renderHeader(); renderTabs(); }).catch(() => {});
