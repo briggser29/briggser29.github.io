@@ -1,4 +1,4 @@
-"""Rebuild index.html (Erik's Public Shelf) from a Shelf database export.
+"""Rebuild index.html (Erik's Book Shelf) from a Shelf database export.
 
 Usage: python3 tools/build.py <books_dir> [goal_for_this_year]
   books_dir: folder of <doc_id>.json files exported from the Shelf's "books" collection.
@@ -27,7 +27,8 @@ def main():
         sys.exit("No books found; refusing to publish an empty shelf.")
     stamp = f"{MONTHS[today.month - 1]} {today.day}, {today.year}"
     s = open(os.path.join(HERE, "shelf-template.html"), encoding="utf-8").read()
-    s = s.replace("<title>Erik's Shelf</title>", "<title>Erik's Public Shelf</title>", 1)
+    s = s.replace("<title>Erik's Shelf</title>", "<title>Erik's Book Shelf</title>", 1)
+    s = s.replace("<h1>Erik's Shelf</h1>", "<h1>Erik's Book Shelf</h1>", 1)
     s = s.replace('<span class="viewonly"> · view only</span>', f'<span class="viewonly"> · updated {stamp}</span>', 1)
     start = s.index("(async () => {\n  render();")
     end = s.index("})();", start) + len("})();")

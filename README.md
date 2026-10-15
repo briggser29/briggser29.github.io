@@ -1,4 +1,4 @@
-# Erik's Public Shelf
+# Erik's Book Shelf
 
 The public, read-only version of my reading log, live at https://briggser29.github.io.
 
