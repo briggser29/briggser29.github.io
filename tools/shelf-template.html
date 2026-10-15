@@ -5,25 +5,37 @@
 <style>
 /* Layout: one narrow reading column; catalog header with yearly goal, add + Audible import, shelf tabs + Stats, toolbar, then catalog-card rows. */
 :root {
-  --bg: #f3f5f2;
-  --surface: #ffffff;
-  --ink: #1d2621;
-  --muted: #5f6b64;
-  --line: #d9dfd9;
+  /* Paper: warm off-white with the green accent (default in light mode) */
+  --bg: #f4efe4;
+  --surface: #fbf8f1;
+  --ink: #1f2a23;
+  --muted: #646b60;
+  --line: #ddd5c4;
   --accent: #1f5b46;
-  --accent-soft: #e2ece6;
-  --brass: #a87b1f;
+  --accent-soft: #e1e8da;
+  --brass: #9a6f16;
   --danger: #a23a2a;
+  color-scheme: light;
   --display: "Young Serif", Georgia, serif;
   --body: "Work Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) {
   --bg: #111815; --surface: #18211d; --ink: #e6ece8; --muted: #95a39b; --line: #2b3832;
   --accent: #7cc4a4; --accent-soft: #1f3129; --brass: #d9ad55; --danger: #e07a68; color-scheme: dark; } }
 :root[data-theme="dark"] {
   --bg: #111815; --surface: #18211d; --ink: #e6ece8; --muted: #95a39b; --line: #2b3832;
   --accent: #7cc4a4; --accent-soft: #1f3129; --brass: #d9ad55; --danger: #e07a68; color-scheme: dark; }
+/* Light: clean white and neutral grays, no green */
+:root[data-theme="light"] {
+  --bg: #f7f7f7; --surface: #ffffff; --ink: #1a1a1a; --muted: #626262; --line: #dedede;
+  --accent: #1a1a1a; --accent-soft: #ebebeb; --brass: #a87b1f; --danger: #a23a2a; color-scheme: light; }
+
+.headrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.themes { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; }
+.themes button { appearance: none; background: none; border: 0; border-radius: 999px; padding: 3px 10px; font: 500 12px var(--body); color: var(--muted); cursor: pointer; }
+.themes button[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink); }
+.themes button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
 
 [hidden] { display: none !important; }
 .visitor .top, .visitor #importer { display: none !important; }
@@ -109,8 +121,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .chip.fav { background: transparent; color: var(--brass); border: 1px solid var(--brass); }
 .chip.src { background: transparent; color: var(--muted); border: 1px solid var(--line); }
 .stars { display: flex; gap: 2px; }
-.star { appearance: none; background: none; border: 0; padding: 0 1px; font-size: 18px; line-height: 1; cursor: pointer; color: var(--line); }
-.star.on { color: var(--brass); }
+.star { position: relative; display: inline-block; padding: 0 1px; font-size: 18px; line-height: 1; color: var(--line); }
+.star .fill { position: absolute; left: 1px; top: 0; width: 0; overflow: hidden; white-space: nowrap; color: var(--brass); pointer-events: none; }
+.star.on .fill { width: calc(100% - 2px); }
+.star.half .fill { width: calc(50% - 1px); }
+.star .hit { position: absolute; top: -4px; bottom: -4px; width: 50%; appearance: none; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; }
+.star .hit.l { left: 0; }
+.star .hit.r { right: 0; }
+.star .hit:focus-visible { outline: 2px solid var(--brass); outline-offset: 0; }
 .prog { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding-top: 4px; }
 .bar { flex: 1; max-width: 360px; height: 6px; border-radius: 999px; background: var(--accent-soft); }
 .bar span { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
@@ -202,7 +220,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 <div class="wrap">
   <header>
-    <span class="eyebrow">Reading log<span class="viewonly"> · view only</span></span>
+    <div class="headrow">
+      <span class="eyebrow">Reading log<span class="viewonly"> · view only</span></span>
+      <div class="themes" id="themes" role="group" aria-label="Color theme">
+        <button type="button" data-theme-set="light">Light</button>
+        <button type="button" data-theme-set="dark">Dark</button>
+        <button type="button" data-theme-set="paper">Paper</button>
+      </div>
+    </div>
     <h1>Erik's Shelf</h1>
     <div class="stats" id="stats"></div>
     <div class="goal" id="goal"></div>
@@ -363,7 +388,9 @@ let goalEditing = false;
 let query = "";
 let genre = "";
 let sortBy = "recent";
-let sorts = { reading: "played" };
+/* Each shelf opens with its own sort. A different pick lasts until the page is reloaded. */
+const DEFAULT_SORTS = { reading: "played", want: "recent", finished: "finished", dnf: "recent", library: "title" };
+let sorts = { ...DEFAULT_SORTS };
 const playedAt = (b) => b.lastPlayedAt || b.startedAt || b.updatedAt || "";
 const fmtAgo = (iso) => {
   const d = new Date(iso); if (isNaN(d)) return "";
@@ -373,10 +400,24 @@ const fmtAgo = (iso) => {
 let onlyUndated = false;
 
 try { const t = localStorage.getItem("shelf-tab"); if (EXTRA_TABS.includes(t) || SHELVES.some(s => s.key === t)) tab = t; } catch (e) {}
-try { const s = JSON.parse(localStorage.getItem("shelf-sorts") || "null"); if (s && typeof s === "object") sorts = { ...sorts, ...s }; } catch (e) {}
+try { localStorage.removeItem("shelf-sorts"); } catch (e) {}
 sortBy = sorts[tab] || "recent";
 
 const $ = (id) => document.getElementById(id);
+
+/* ---------- theme ---------- */
+const THEMES = ["light", "dark", "paper"];
+const darkMq = window.matchMedia ? matchMedia("(prefers-color-scheme: dark)") : null;
+function applyTheme(t, remember) {
+  const root = document.documentElement;
+  if (THEMES.includes(t)) root.dataset.theme = t; else delete root.dataset.theme;
+  const cur = root.dataset.theme || (darkMq && darkMq.matches ? "dark" : "paper");
+  document.querySelectorAll("[data-theme-set]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.themeSet === cur)));
+  if (remember) { try { localStorage.setItem("shelf-theme", t); } catch (e) {} }
+}
+{ let saved = null; try { saved = localStorage.getItem("shelf-theme"); } catch (e) {} applyTheme(saved); }
+$("themes").addEventListener("click", e => { const b = e.target.closest("[data-theme-set]"); if (b) applyTheme(b.dataset.themeSet, true); });
+if (darkMq && darkMq.addEventListener) darkMq.addEventListener("change", () => applyTheme(document.documentElement.dataset.theme));
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const clampPct = (n) => Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
 const fmtHrs = (min) => { const m = Math.max(0, Math.round(min)); const h = Math.floor(m / 60); return h ? `${h}h ${m % 60}m` : `${m}m`; };
@@ -505,6 +546,17 @@ function renderTools() {
 }
 
 /* ---------- list ---------- */
+/* Ratings go in half steps: the left half of a star gives n - 0.5, the right half n. Clicking the current rating clears it. */
+function starRow(rating, id) {
+  const r = Number(rating) || 0;
+  return [1, 2, 3, 4, 5].map(n => {
+    const cls = r >= n ? "on" : r >= n - 0.5 ? "half" : "";
+    const hits = id ? `<button class="hit l" type="button" data-rate="${n - 0.5}" data-id="${id}" aria-label="Rate ${n - 0.5} of 5"></button><button class="hit r" type="button" data-rate="${n}" data-id="${id}" aria-label="Rate ${n} of 5"></button>` : "";
+    return `<span class="star ${cls}${id ? "" : " static"}"><span aria-hidden="true">★</span><span class="fill" aria-hidden="true">★</span>${hits}</span>`;
+  }).join("");
+}
+const starText = (r) => "★".repeat(Math.floor(r)) + (r % 1 ? "½" : "");
+
 function progressRow(b) {
   const p = clampPct(b.progress);
   const left = b.runtimeMin ? ` · ${fmtHrs(b.runtimeMin * (100 - p) / 100)} left` : "";
@@ -527,8 +579,8 @@ function renderList() {
   }
   $("list").innerHTML = shown.map(b => {
     const stars = visitor
-      ? (b.rating ? `<span role="img" aria-label="Rated ${b.rating} of 5">${[1,2,3,4,5].map(n => `<span class="star static ${b.rating >= n ? "on" : ""}" aria-hidden="true">★</span>`).join("")}</span>` : "")
-      : [1,2,3,4,5].map(n => `<button class="star ${b.rating >= n ? "on" : ""}" data-rate="${n}" data-id="${b.id}" aria-label="Rate ${n} of 5">★</button>`).join("");
+      ? (b.rating ? `<span role="img" aria-label="Rated ${b.rating} of 5">${starRow(b.rating)}</span>` : "")
+      : starRow(b.rating, b.id);
     const isOpen = openId === b.id;
     const gen = (b.genres || [])[0];
     const stopped = clampPct(b.progress);
@@ -735,7 +787,10 @@ function renderStats() {
     </section>`;
   }
 
-  const ratingRows = [5, 4, 3, 2, 1].map(r => { const n = done.filter(b => b.rating === r).length; return { label: "★".repeat(r), n, tip: `${r} star${r === 1 ? "" : "s"}: ${n} books` }; });
+  const ratingRows = [5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5]
+    .map(r => ({ r, n: done.filter(b => b.rating === r).length }))
+    .filter(x => Number.isInteger(x.r) || x.n)
+    .map(({ r, n }) => ({ label: starText(r), n, tip: `${r} star${r === 1 ? "" : "s"}: ${n} book${n === 1 ? "" : "s"}` }));
   const authorMap = new Map();
   done.forEach(b => { const a = (b.author || "").split(",")[0].trim(); if (a) authorMap.set(a, (authorMap.get(a) || 0) + 1); });
   const minA = all ? 2 : 1;
@@ -1001,7 +1056,7 @@ $("tabs").addEventListener("click", e => {
 
 $("q").addEventListener("input", e => { query = e.target.value.trim(); openId = null; renderTabs(); renderList(); });
 $("genre").addEventListener("change", e => { genre = e.target.value; openId = null; renderTabs(); renderList(); });
-$("sort").addEventListener("change", e => { sortBy = e.target.value; sorts[tab] = sortBy; try { localStorage.setItem("shelf-sorts", JSON.stringify(sorts)); } catch (err) {} renderList(); });
+$("sort").addEventListener("change", e => { sortBy = e.target.value; sorts[tab] = sortBy; renderList(); });
 $("onlyUndated").addEventListener("change", e => { onlyUndated = e.target.checked; renderList(); });
 $("ownedOnly").addEventListener("change", e => { ownedOnly = e.target.checked; openId = null; renderTabs(); renderList(); });
 
