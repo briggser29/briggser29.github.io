@@ -18,6 +18,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument('source'); ap.add_argument('photos'); ap.add_argument('out'); ap.add_argument('passcode')
 ap.add_argument('--supabase-url', default=''); ap.add_argument('--supabase-key', default='')
 ap.add_argument('--migrate', default='')
+ap.add_argument('--demo', action='store_true', help='also write try.html: opens with the key in the link, saves nothing')
 a = ap.parse_args()
 
 src = open(a.source, encoding='utf-8').read()
@@ -47,11 +48,15 @@ def rep(a_, b_, n=1):
 rep('try { [db, user] = await Promise.all([window.claude?.use?.("db") ?? null, window.claude?.use?.("user") ?? null]); } catch (e) {}',
     'try { db = window.__MP.makeDb(); user = window.__MP.user; } catch (e) { console.error(e); }')
 rep('"Saving on this device only. Open the shared link to sync with each other."',
-    '"Saving on this device only. Syncing is not set up yet."')
+    '(window.__MP.demo ? "Preview: nothing is saved. Your picks and list reset when you reload the page." : "Saving on this device only. Syncing is not set up yet.")')
 rep('src="photos/${r.id}.webp"', 'data-photo="${r.id}" src="${window.__MP.blank}"', 2)
 
 # ---- encrypt ----
 salt = secrets.token_bytes(16)
+_old = os.path.join(a.out, 'index.html')
+if os.path.exists(_old):
+    _m = re.search(r'window.__MPCFG = (\{.*?\});', open(_old, encoding='utf-8').read())
+    if _m: salt = base64.b64decode(json.loads(_m.group(1))['salt'])
 key = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=ITER).derive(a.passcode.encode())
 aes = AESGCM(key)
 def enc(b):
@@ -122,4 +127,9 @@ img {{ max-width: 100%; }}
 </html>
 '''
 open(os.path.join(a.out, 'index.html'), 'w', encoding='utf-8').write(html)
+if a.demo:
+    dcfg = dict(cfg, demo=True, sbUrl='', sbKey='')
+    dhtml = html.replace('window.__MPCFG = ' + json.dumps(cfg), 'window.__MPCFG = ' + json.dumps(dcfg))
+    open(os.path.join(a.out, 'try.html'), 'w', encoding='utf-8').write(dhtml)
+    print('preview link: https://briggser29.github.io/meals/try.html#' + base64.urlsafe_b64encode(key).decode().rstrip('='))
 print(f'built {len(recipes)} recipes, {n} photos -> {a.out}')

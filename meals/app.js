@@ -514,7 +514,7 @@ renderFilters(); setView(state.view); render();
   const sync = document.getElementById("sync");
   let db = null, user = null;
   try { db = window.__MP.makeDb(); user = window.__MP.user; } catch (e) { console.error(e); }
-  if (!db) { sync.textContent = "Saving on this device only. Syncing is not set up yet."; sync.classList.add("show"); return; }
+  if (!db) { sync.textContent = (window.__MP.demo ? "Preview: nothing is saved. Your picks and list reset when you reload the page." : "Saving on this device only. Syncing is not set up yet."); sync.classList.add("show"); return; }
   state._db = db; state.local = false;
   try { const w = await user?.can?.("data.write"); if (w === false) { state.canWrite = false; sync.textContent = "View only. Ask whoever shared this page for edit access to make changes."; sync.classList.add("show"); } } catch (e) {}
   state.user = user;

@@ -324,6 +324,13 @@ img { max-width: 100%; }
 (() => {
   const CFG = window.__MPCFG;
   const KEY_LS = "mp-key-" + CFG.salt.slice(0, 8);
+  if (CFG.demo) {
+    // Preview mode: keep everything in memory so nothing survives a reload.
+    const mem = new Map();
+    const fake = { getItem: k => mem.has(k) ? mem.get(k) : null, setItem: (k, v) => mem.set(k, String(v)), removeItem: k => mem.delete(k), clear: () => mem.clear(), key: i => [...mem.keys()][i] ?? null, get length() { return mem.size; } };
+    try { Object.defineProperty(window, "localStorage", { value: fake, configurable: true }); } catch (e) {}
+    try { Object.defineProperty(window, "sessionStorage", { value: fake, configurable: true }); } catch (e) {}
+  }
   const BLANK = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
   const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
   const ub64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
@@ -472,7 +479,7 @@ img { max-width: 100%; }
     const plain = await decrypt(key, await fetchBin("data.bin"));
     const payload = JSON.parse(new TextDecoder().decode(plain));
     KEY = key;
-    window.__MP = { recipes: payload.recipes, migrate: payload.migrate || null, makeDb, user, blank: BLANK };
+    window.__MP = { recipes: payload.recipes, migrate: CFG.demo ? null : (payload.migrate || null), makeDb, user, blank: BLANK, demo: !!CFG.demo };
     document.getElementById("lock").hidden = true;
     document.getElementById("app").hidden = false;
     const s = document.createElement("script"); s.src = "app.js?v=" + CFG.salt.slice(0, 6); document.body.appendChild(s);
@@ -490,6 +497,13 @@ img { max-width: 100%; }
     }
   });
   (async () => {
+    if (CFG.demo) {
+      const h = location.hash.slice(1).replace(/-/g, "+").replace(/_/g, "/");
+      document.getElementById("lock").querySelector("p").textContent = "Opening the preview...";
+      try { await start(await crypto.subtle.importKey("raw", b64(h + "=".repeat((4 - h.length % 4) % 4)), "AES-GCM", false, ["decrypt"])); }
+      catch (e) { document.getElementById("lock").querySelector("p").textContent = "This preview link is incomplete or out of date. Ask for a new one."; document.getElementById("pass").hidden = true; document.getElementById("unlockbtn").hidden = true; }
+      return;
+    }
     let saved = null; try { saved = localStorage.getItem(KEY_LS); } catch (e) {}
     if (!saved) { document.getElementById("pass").focus(); return; }
     try { await start(await crypto.subtle.importKey("raw", b64(saved), "AES-GCM", false, ["decrypt"])); }
