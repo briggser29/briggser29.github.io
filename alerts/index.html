@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Finance Alerts</title>
+<meta name="theme-color" content="#155e48">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #f4f6f5; --card: #ffffff; --text: #17201c; --muted: #5d6b65; --line: #dfe5e2;
+    --accent: #155e48; --accent-text: #ffffff; --warn: #9a3412; --ok: #166534;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1412; --card: #18201d; --text: #e7ece9; --muted: #9aa8a2; --line: #2a3531;
+      --accent: #2f8f6f; --accent-text: #ffffff; --warn: #f0a070; --ok: #7fd1a2;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1412; --card: #18201d; --text: #e7ece9; --muted: #9aa8a2; --line: #2a3531;
+    --accent: #2f8f6f; --accent-text: #ffffff; --warn: #f0a070; --ok: #7fd1a2;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: max(20px, env(safe-area-inset-top)) 16px 40px; }
+  h1 { font-size: 1.5rem; margin: 4px 0 2px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .card h2 { font-size: 1rem; margin: 0 0 8px; }
+  .status { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); }
+  p { margin: 8px 0; }
+  .muted { color: var(--muted); font-size: .92rem; }
+  button { font: inherit; font-weight: 600; border: 0; border-radius: 10px; padding: 12px 16px; width: 100%; margin-top: 10px; cursor: pointer;
+           background: var(--accent); color: var(--accent-text); }
+  button.secondary { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  [hidden] { display: none !important; }
+  ol { padding-left: 20px; margin: 8px 0; } li { margin: 4px 0; }
+  .alert { border-top: 1px solid var(--line); padding: 12px 0; }
+  .alert:first-child { border-top: 0; padding-top: 0; }
+  .alert b { display: block; }
+  .alert time { color: var(--muted); font-size: .85rem; }
+  .alert div { white-space: pre-line; margin-top: 4px; }
+  .empty { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Finance Alerts</h1>
+  <p class="sub">Spending and cash alerts from your finance dashboard.</p>
+
+  <section class="card" id="install-card" hidden>
+    <h2>Install the app</h2>
+    <p class="muted">Adds Finance Alerts to your app drawer so it opens like any other app.</p>
+    <button id="install">Install app</button>
+  </section>
+
+  <section class="card">
+    <h2>Notifications</h2>
+    <div class="status"><span class="dot" id="dot"></span><span id="status">Checking…</span></div>
+    <p class="muted" id="status-detail"></p>
+    <button id="enable" hidden>Turn on notifications</button>
+  </section>
+
+  <section class="card" id="pair-card" hidden>
+    <h2>Connect this phone to your PC</h2>
+    <ol class="muted">
+      <li>Tap <b>Send to my PC</b> and pick <b>Gmail</b>.</li>
+      <li>Send it to yourself with the subject it already has.</li>
+      <li>Tell Claude it's sent; it will finish the setup and send a test alert.</li>
+    </ol>
+    <button id="share">Send to my PC</button>
+    <button class="secondary" id="copy">Copy setup code instead</button>
+    <p class="muted" id="copy-note" hidden>Copied. Paste it into an email to yourself.</p>
+  </section>
+
+  <section class="card">
+    <h2>Recent alerts</h2>
+    <div id="list"><p class="empty">No alerts yet. You'll only hear from this app when spending runs ahead of normal or checking may run short.</p></div>
+  </section>
+</main>
+<script>
+const VAPID = 'BOouLs_zbh_1mC002iHToMnVQzr3XFZKpRI3HJEzf9UYGxJ-QKTX5pg-bRJ7Inuht3dIW-gmkxntZ4YRbeKet5Y';
+const $ = id => document.getElementById(id);
+let reg = null, deferredInstall = null;
+
+function keyBytes(b64) {
+  const s = atob((b64 + '='.repeat((4 - b64.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(s, c => c.charCodeAt(0));
+}
+function setStatus(kind, text, detail) {
+  $('dot').className = 'dot ' + (kind || ''); $('status').textContent = text; $('status-detail').textContent = detail || '';
+}
+function setupCode(sub) { return 'FINANCE-ALERTS-SETUP ' + JSON.stringify(sub); }
+
+async function refresh() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return setStatus('warn', 'Not supported here', 'Open this page in Chrome on your phone.');
+  }
+  reg = await navigator.serviceWorker.register('sw.js');
+  await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  const perm = Notification.permission;
+  $('enable').hidden = !!sub && perm === 'granted';
+  $('pair-card').hidden = !(sub && perm === 'granted');
+  if (perm === 'denied') {
+    $('enable').hidden = true;
+    setStatus('warn', 'Blocked', 'Notifications are blocked. Allow them in Android Settings > Apps > Finance Alerts (or Chrome) > Notifications, then reopen.');
+  } else if (sub && perm === 'granted') {
+    let paired = false; try { paired = localStorage.getItem('paired') === sub.endpoint; } catch {}
+    setStatus('ok', 'On', paired ? 'This phone is set up. Alerts arrive after the 10 am and 8 pm refresh, only when something changes.'
+                                 : 'Last step: connect this phone to your PC below.');
+    if (paired) $('pair-card').hidden = true;
+  } else {
+    setStatus('', 'Off', 'Turn on notifications to get alerts on this phone.');
+  }
+}
+
+$('enable').onclick = async () => {
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return refresh();
+    await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID) });
+  } catch (e) { setStatus('warn', 'Could not turn on', String(e.message || e)); return; }
+  refresh();
+};
+
+$('share').onclick = async () => {
+  const sub = await reg.pushManager.getSubscription();
+  const text = setupCode(sub);
+  try {
+    if (navigator.share) { await navigator.share({ title: 'Finance alerts setup', text }); }
+    else { location.href = 'mailto:?subject=' + encodeURIComponent('Finance alerts setup') + '&body=' + encodeURIComponent(text); }
+    try { localStorage.setItem('shared', sub.endpoint); } catch {}
+  } catch {}
+};
+$('copy').onclick = async () => {
+  const sub = await reg.pushManager.getSubscription();
+  try { await navigator.clipboard.writeText(setupCode(sub)); $('copy-note').hidden = false; } catch {}
+};
+
+// Mark paired when the PC's test alert arrives on this phone.
+function loadAlerts() {
+  const r = indexedDB.open('finance-alerts', 1);
+  r.onupgradeneeded = () => r.result.createObjectStore('alerts', { keyPath: 'at' });
+  r.onsuccess = () => {
+    const q = r.result.transaction('alerts').objectStore('alerts').getAll();
+    q.onsuccess = async () => {
+      const items = q.result.sort((a, b) => b.at - a.at);
+      if (items.length) {
+        try { const s = reg && await reg.pushManager.getSubscription(); if (s) localStorage.setItem('paired', s.endpoint); } catch {}
+        const list = $('list'); list.textContent = '';
+        for (const a of items) {
+          const el = document.createElement('div'); el.className = 'alert';
+          const b = document.createElement('b'); b.textContent = a.title;
+          const t = document.createElement('time'); t.textContent = new Date(a.at).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+          const d = document.createElement('div'); d.textContent = a.body;
+          el.append(b, t, d); list.append(el);
+        }
+        refresh();
+      }
+    };
+  };
+}
+
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstall = e; $('install-card').hidden = false; });
+$('install').onclick = async () => { if (!deferredInstall) return; deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; $('install-card').hidden = true; };
+window.addEventListener('appinstalled', () => { $('install-card').hidden = true; });
+navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'alert') loadAlerts(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadAlerts(); });
+
+refresh().then(loadAlerts);
+</script>
+</body>
+</html>
